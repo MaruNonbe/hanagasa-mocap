@@ -1004,10 +1004,22 @@ function rigHandFingers(vrm, handLandmarks, side){
   });
 }
 
+// MediaPipe Pose landmark indices used for per-limb visibility gating
+const LM = { leftHip: 23, rightHip: 24, leftKnee: 25, rightKnee: 26, leftAnkle: 27, rightAnkle: 28, leftFootIndex: 31, rightFootIndex: 32 };
+const VISIBILITY_THRESHOLD = 0.5;
+
+function avgVisibility(landmarks, indices){
+  if (!landmarks) return 0;
+  const vals = indices.map((i) => landmarks[i]?.visibility ?? 0);
+  return vals.reduce((a, b) => a + b, 0) / vals.length;
+}
+
 function applyFrameToVRM(vrm, frame){
   if (!frame || !frame.pose) return;
   const world3d = frame.poseWorld || frame.pose; // fallback for older JSON without world landmarks
-  const poseRig = Kalidokit.Pose.solve(world3d, frame.pose, { runtime: 'mediapipe' });
+  // enableLegs is required for Kalidokit to compute leg rotations at all —
+  // without it, leg output is unreliable/absent.
+  const poseRig = Kalidokit.Pose.solve(world3d, frame.pose, { runtime: 'mediapipe', enableLegs: true });
   if (!poseRig) return;
   rigHips(vrm, poseRig.Hips);
   rigRotation(vrm, 'Chest', poseRig.Spine, 0.25, 0.4);
@@ -1016,10 +1028,24 @@ function applyFrameToVRM(vrm, frame){
   rigRotation(vrm, 'LeftLowerArm', poseRig.LeftLowerArm, 1, 0.4);
   rigRotation(vrm, 'RightUpperArm', poseRig.RightUpperArm, 1, 0.4);
   rigRotation(vrm, 'RightLowerArm', poseRig.RightLowerArm, 1, 0.4);
-  rigRotation(vrm, 'LeftUpperLeg', poseRig.LeftUpperLeg, 1, 0.4);
-  rigRotation(vrm, 'LeftLowerLeg', poseRig.LeftLowerLeg, 1, 0.4);
-  rigRotation(vrm, 'RightUpperLeg', poseRig.RightUpperLeg, 1, 0.4);
-  rigRotation(vrm, 'RightLowerLeg', poseRig.RightLowerLeg, 1, 0.4);
+
+  // Legs/feet are the least reliable part of a single-camera estimate (frequent
+  // self-occlusion). Skip updating a limb on frames where MediaPipe's own
+  // confidence for its landmarks is low, rather than applying noisy values —
+  // this holds the last good pose instead of jittering toward garbage.
+  const leftLegVis = avgVisibility(frame.pose, [LM.leftHip, LM.leftKnee, LM.leftAnkle]);
+  const rightLegVis = avgVisibility(frame.pose, [LM.rightHip, LM.rightKnee, LM.rightAnkle]);
+  if (leftLegVis > VISIBILITY_THRESHOLD){
+    rigRotation(vrm, 'LeftUpperLeg', poseRig.LeftUpperLeg, 1, 0.3);
+    rigRotation(vrm, 'LeftLowerLeg', poseRig.LeftLowerLeg, 1, 0.3);
+    if (poseRig.LeftFoot) rigRotation(vrm, 'LeftFoot', poseRig.LeftFoot, 1, 0.3);
+  }
+  if (rightLegVis > VISIBILITY_THRESHOLD){
+    rigRotation(vrm, 'RightUpperLeg', poseRig.RightUpperLeg, 1, 0.3);
+    rigRotation(vrm, 'RightLowerLeg', poseRig.RightLowerLeg, 1, 0.3);
+    if (poseRig.RightFoot) rigRotation(vrm, 'RightFoot', poseRig.RightFoot, 1, 0.3);
+  }
+
   rigHandWrist(vrm, 'Left', poseRig, frame.leftHand);
   rigHandWrist(vrm, 'Right', poseRig, frame.rightHand);
   rigHandFingers(vrm, frame.leftHand, 'Left');
