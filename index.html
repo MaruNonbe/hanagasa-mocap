@@ -766,6 +766,7 @@ async function runPoseEstimation(slotIndex){
       frame: frameIdx,
       t: Number((t - startTime).toFixed(4)),
       pose: stripLandmarks(latestResults && latestResults.poseLandmarks),
+      poseWorld: stripLandmarks(latestResults && latestResults.poseWorldLandmarks),
       leftHand: stripLandmarks(latestResults && latestResults.leftHandLandmarks),
       rightHand: stripLandmarks(latestResults && latestResults.rightHandLandmarks),
     });
@@ -927,7 +928,10 @@ poseJsonFileInput.addEventListener('change', async (e) => {
     const text = await file.text();
     const data = JSON.parse(text);
     window.appState.poseData = data;
-    vrmProgressText.textContent = `骨格データを読み込みました(${data.frames?.length ?? 0}フレーム)`;
+    const hasWorld = data.frames?.some((f) => f.poseWorld);
+    vrmProgressText.textContent = hasWorld
+      ? `骨格データを読み込みました(${data.frames?.length ?? 0}フレーム)`
+      : `骨格データを読み込みました(${data.frames?.length ?? 0}フレーム)※実寸3D座標(poseWorld)が含まれていないため、精度が落ちます。ステップ3で再抽出することをおすすめします。`;
     vrmProgress.classList.add('visible');
     vrmSectionLabel.style.display = 'block';
     vrmPanel.style.display = 'block';
@@ -985,7 +989,8 @@ function rigHand(vrm, handLandmarks, side){
 
 function applyFrameToVRM(vrm, frame){
   if (!frame || !frame.pose) return;
-  const poseRig = Kalidokit.Pose.solve(frame.pose, frame.pose, { runtime: 'mediapipe' });
+  const world3d = frame.poseWorld || frame.pose; // fallback for older JSON without world landmarks
+  const poseRig = Kalidokit.Pose.solve(world3d, frame.pose, { runtime: 'mediapipe' });
   if (!poseRig) return;
   rigHips(vrm, poseRig.Hips);
   rigRotation(vrm, 'Chest', poseRig.Spine, 0.25, 0.4);
