@@ -9,6 +9,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/kalidokit@1.1.4/dist/kalidokit.umd.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+    "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2/lib/three-vrm.module.js"
+  }
+}
+</script>
 <style>
   :root{
     --bg: #12151d;
@@ -198,6 +208,17 @@
   .pose-stage.visible{ display:block; }
   .pose-stage canvas{ width:100%; display:block; }
 
+  .vrm-viewport{
+    width:100%; height:460px; background:#0a0d13; border-radius:8px; margin-top:16px;
+    display:none; position:relative; overflow:hidden;
+  }
+  .vrm-viewport.visible{ display:block; }
+  .vrm-viewport canvas{ display:block; width:100%; height:100%; }
+  .vrm-hint{
+    position:absolute; bottom:10px; left:12px; font-size:11px; color: var(--text-faint);
+    font-family: var(--mono); pointer-events:none;
+  }
+
   footer.note{
     margin-top: 40px; padding-top: 20px; border-top:1px solid var(--border-soft);
     font-size: 12px; color: var(--text-faint); line-height:1.7;
@@ -259,6 +280,33 @@
     </div>
   </div>
 
+  <div class="section-label" id="vrmSectionLabel" style="display:none;">04 — VRMリターゲティング</div>
+  <div class="pose-panel" id="vrmPanel" style="display:none;">
+    <div class="controls-row">
+      <label class="secondary" style="cursor:pointer; display:inline-flex; align-items:center;">
+        VRM/glbを選択
+        <input type="file" accept=".vrm,.glb" id="vrmFileInput" style="display:none">
+      </label>
+      <label class="secondary" style="cursor:pointer; display:inline-flex; align-items:center;">
+        骨格データ(JSON)を読み込む
+        <input type="file" accept=".json" id="poseJsonFileInput" style="display:none">
+      </label>
+      <button class="primary" id="retargetBtn" disabled>リターゲティングを実行</button>
+    </div>
+    <div class="pose-progress" id="vrmProgress">
+      <span id="vrmProgressText">待機中</span>
+      <div class="pose-progress-bar"><div class="pose-progress-bar-fill" id="vrmProgressFill"></div></div>
+    </div>
+    <div class="controls-row" id="vrmPlaybackControls" style="display:none;">
+      <button class="secondary" id="vrmPlayBtn">再生</button>
+      <button class="secondary" id="vrmPauseBtn">一時停止</button>
+      <button class="secondary" id="vrmExportBtn" disabled>アニメーション付きVRMをglbで書き出し</button>
+    </div>
+    <div class="vrm-viewport" id="vrmViewport">
+      <div class="vrm-hint" id="vrmHint"></div>
+    </div>
+  </div>
+
   <footer class="note">
     手拍子の検出は、各動画の音声から短時間RMSエンベロープを算出し、立ち上がりが最も急峻な地点(先頭5秒以内を優先)を目印として採用しています。誤検出時は各スロットの ± ボタンでフレーム単位に手動補正できます。すべての処理はブラウザ内で完結し、動画ファイルは外部に送信されません。
   </footer>
@@ -275,6 +323,7 @@ const SLOT_META = [
 const state = {
   slots: [null, null, null], // { file, videoEl, audioBuffer, envelope, envRate, clapTime, canvas }
 };
+window.appState = state;
 
 const slotsEl = document.getElementById('slots');
 const analyzeBtn = document.getElementById('analyzeBtn');
@@ -741,6 +790,7 @@ async function runPoseEstimation(slotIndex){
   runPoseBtn.disabled = false;
   exportPoseBtn.disabled = false;
   poseRunning = false;
+  window.dispatchEvent(new CustomEvent('pose-data-ready'));
 }
 
 runPoseBtn.addEventListener('click', () => {
@@ -756,6 +806,308 @@ exportPoseBtn.addEventListener('click', () => {
   a.href = URL.createObjectURL(blob);
   a.download = `pose-${state.poseData.sourceFilename.replace(/\.[^.]+$/, '')}.json`;
   a.click();
+});
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
+
+const vrmSectionLabel = document.getElementById('vrmSectionLabel');
+const vrmPanel = document.getElementById('vrmPanel');
+const vrmFileInput = document.getElementById('vrmFileInput');
+const poseJsonFileInput = document.getElementById('poseJsonFileInput');
+const retargetBtn = document.getElementById('retargetBtn');
+const vrmProgress = document.getElementById('vrmProgress');
+const vrmProgressText = document.getElementById('vrmProgressText');
+const vrmProgressFill = document.getElementById('vrmProgressFill');
+const vrmPlaybackControls = document.getElementById('vrmPlaybackControls');
+const vrmPlayBtn = document.getElementById('vrmPlayBtn');
+const vrmPauseBtn = document.getElementById('vrmPauseBtn');
+const vrmExportBtn = document.getElementById('vrmExportBtn');
+const vrmViewport = document.getElementById('vrmViewport');
+const vrmHint = document.getElementById('vrmHint');
+
+const local = { vrm: null, clip: null, mixer: null, action: null, renderer: null, scene: null, camera: null };
+
+// reveal this section once pose data exists
+window.addEventListener('pose-data-ready', () => {
+  vrmSectionLabel.style.display = 'block';
+  vrmPanel.style.display = 'block';
+  refreshRetargetReady();
+});
+
+function refreshRetargetReady(){
+  retargetBtn.disabled = !(local.vrm && window.appState.poseData);
+}
+
+// --- three.js viewport setup -----------------------------------------
+
+function ensureViewport(){
+  if (local.renderer) return;
+  vrmViewport.classList.add('visible');
+  const width = vrmViewport.clientWidth;
+  const height = vrmViewport.clientHeight;
+
+  local.scene = new THREE.Scene();
+  local.camera = new THREE.PerspectiveCamera(30, width / height, 0.1, 20);
+  local.camera.position.set(0, 1.3, 3.2);
+
+  local.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  local.renderer.setSize(width, height);
+  local.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  vrmViewport.appendChild(local.renderer.domElement);
+
+  const controls = new OrbitControls(local.camera, local.renderer.domElement);
+  controls.target.set(0, 1.0, 0);
+  controls.update();
+
+  const light = new THREE.DirectionalLight(0xffffff, 1.4);
+  light.position.set(1, 1, 1);
+  local.scene.add(light);
+  local.scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+
+  const clock = new THREE.Clock();
+  function tick(){
+    requestAnimationFrame(tick);
+    const delta = clock.getDelta();
+    if (local.mixer) local.mixer.update(delta);
+    if (local.vrm) local.vrm.update(delta);
+    controls.update();
+    local.renderer.render(local.scene, local.camera);
+  }
+  tick();
+
+  window.addEventListener('resize', () => {
+    const w = vrmViewport.clientWidth, h = vrmViewport.clientHeight;
+    if (!w || !h) return;
+    local.camera.aspect = w / h;
+    local.camera.updateProjectionMatrix();
+    local.renderer.setSize(w, h);
+  });
+}
+
+// --- loading VRM -------------------------------------------------------
+
+vrmFileInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  vrmHint.textContent = `読み込み中: ${file.name}`;
+  ensureViewport();
+
+  const loader = new GLTFLoader();
+  loader.register((parser) => new VRMLoaderPlugin(parser));
+
+  const url = URL.createObjectURL(file);
+  loader.load(url, (gltf) => {
+    const vrm = gltf.userData.vrm;
+    if (local.vrm) local.scene.remove(local.vrm.scene);
+    VRMUtils.removeUnnecessaryVertices(gltf.scene);
+    VRMUtils.removeUnnecessaryJoints(gltf.scene);
+    if (vrm.meta && (vrm.meta.metaVersion === '0' || vrm.meta.specVersion === undefined)) {
+      VRMUtils.rotateVRM0(vrm);
+    }
+    local.vrm = vrm;
+    local.scene.add(vrm.scene);
+    vrmHint.textContent = `読み込み完了: ${file.name}`;
+    refreshRetargetReady();
+  }, undefined, (err) => {
+    console.error(err);
+    vrmHint.textContent = '読み込みに失敗しました';
+  });
+});
+
+poseJsonFileInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    window.appState.poseData = data;
+    vrmProgressText.textContent = `骨格データを読み込みました(${data.frames?.length ?? 0}フレーム)`;
+    vrmProgress.classList.add('visible');
+    vrmSectionLabel.style.display = 'block';
+    vrmPanel.style.display = 'block';
+    refreshRetargetReady();
+  } catch (err) {
+    console.error(err);
+    vrmProgressText.textContent = 'JSONの読み込みに失敗しました';
+  }
+});
+
+// --- Kalidokit retargeting ----------------------------------------------
+
+function toVRMBoneName(name){
+  return name.charAt(0).toLowerCase() + name.slice(1);
+}
+
+function rigRotation(vrm, kalidokitName, rotation, dampener = 1, lerpFactor = 0.4){
+  const bone = vrm.humanoid?.getNormalizedBoneNode(toVRMBoneName(kalidokitName));
+  if (!bone || !rotation) return;
+  const euler = new THREE.Euler(
+    (rotation.x || 0) * dampener,
+    (rotation.y || 0) * dampener,
+    (rotation.z || 0) * dampener,
+    'XYZ'
+  );
+  const quat = new THREE.Quaternion().setFromEuler(euler);
+  bone.quaternion.slerp(quat, lerpFactor);
+}
+
+function rigHips(vrm, hipsRig, lerpFactor = 0.5){
+  const bone = vrm.humanoid?.getNormalizedBoneNode('hips');
+  if (!bone || !hipsRig) return;
+  const euler = new THREE.Euler(hipsRig.rotation.x, hipsRig.rotation.y, hipsRig.rotation.z, 'XYZ');
+  bone.quaternion.slerp(new THREE.Quaternion().setFromEuler(euler), lerpFactor);
+  bone.position.lerp(
+    new THREE.Vector3(hipsRig.position.x, hipsRig.position.y + 1, -hipsRig.position.z * 0.5),
+    lerpFactor
+  );
+}
+
+const FINGER_BONES = ['ThumbProximal','ThumbIntermediate','ThumbDistal',
+  'IndexProximal','IndexIntermediate','IndexDistal',
+  'MiddleProximal','MiddleIntermediate','MiddleDistal',
+  'RingProximal','RingIntermediate','RingDistal',
+  'LittleProximal','LittleIntermediate','LittleDistal'];
+
+function rigHand(vrm, handLandmarks, side){
+  if (!handLandmarks) return;
+  const rig = Kalidokit.Hand.solve(handLandmarks, side);
+  if (!rig) return;
+  FINGER_BONES.forEach((b) => {
+    rigRotation(vrm, side + b, rig[side + b], 1, 0.5);
+  });
+}
+
+function applyFrameToVRM(vrm, frame){
+  if (!frame || !frame.pose) return;
+  const poseRig = Kalidokit.Pose.solve(frame.pose, frame.pose, { runtime: 'mediapipe' });
+  if (!poseRig) return;
+  rigHips(vrm, poseRig.Hips);
+  rigRotation(vrm, 'Chest', poseRig.Spine, 0.25, 0.4);
+  rigRotation(vrm, 'Spine', poseRig.Spine, 0.45, 0.4);
+  rigRotation(vrm, 'LeftUpperArm', poseRig.LeftUpperArm, 1, 0.4);
+  rigRotation(vrm, 'LeftLowerArm', poseRig.LeftLowerArm, 1, 0.4);
+  rigRotation(vrm, 'RightUpperArm', poseRig.RightUpperArm, 1, 0.4);
+  rigRotation(vrm, 'RightLowerArm', poseRig.RightLowerArm, 1, 0.4);
+  rigRotation(vrm, 'LeftUpperLeg', poseRig.LeftUpperLeg, 1, 0.4);
+  rigRotation(vrm, 'LeftLowerLeg', poseRig.LeftLowerLeg, 1, 0.4);
+  rigRotation(vrm, 'RightUpperLeg', poseRig.RightUpperLeg, 1, 0.4);
+  rigRotation(vrm, 'RightLowerLeg', poseRig.RightLowerLeg, 1, 0.4);
+  rigHand(vrm, frame.leftHand, 'Left');
+  rigHand(vrm, frame.rightHand, 'Right');
+}
+
+// bake all frames into an AnimationClip so it can be played back and exported
+async function retarget(){
+  const vrm = local.vrm;
+  const poseData = window.appState.poseData;
+  if (!vrm || !poseData) return;
+
+  retargetBtn.disabled = true;
+  vrmProgress.classList.add('visible');
+
+  const trackedBoneNames = new Set();
+  const perFrameSamples = []; // { time, bones: Map(name -> {quat, pos?}) }
+
+  const frames = poseData.frames;
+  const fps = poseData.frameRate || 30;
+
+  for (let i = 0; i < frames.length; i++){
+    applyFrameToVRM(vrm, frames[i]);
+
+    const sample = { time: frames[i].t, bones: new Map() };
+    vrm.humanoid.humanBones && Object.keys(vrm.humanoid.humanBones).forEach((boneName) => {
+      const node = vrm.humanoid.getNormalizedBoneNode(boneName);
+      if (!node) return;
+      trackedBoneNames.add(boneName);
+      sample.bones.set(boneName, {
+        quat: node.quaternion.clone(),
+        pos: boneName === 'hips' ? node.position.clone() : null,
+      });
+    });
+    perFrameSamples.push(sample);
+
+    if (i % 15 === 0){
+      const pct = Math.round((i / frames.length) * 100);
+      vrmProgressText.textContent = `リターゲティング中 ${i}/${frames.length}(${pct}%)`;
+      vrmProgressFill.style.width = pct + '%';
+      await new Promise((r) => setTimeout(r, 0)); // yield to keep UI responsive
+    }
+  }
+
+  const tracks = [];
+  trackedBoneNames.forEach((boneName) => {
+    const node = vrm.humanoid.getNormalizedBoneNode(boneName);
+    if (!node) return;
+    const times = [];
+    const quatValues = [];
+    perFrameSamples.forEach((s) => {
+      const b = s.bones.get(boneName);
+      if (!b) return;
+      times.push(s.time);
+      quatValues.push(b.quat.x, b.quat.y, b.quat.z, b.quat.w);
+    });
+    if (times.length){
+      tracks.push(new THREE.QuaternionKeyframeTrack(`${node.name}.quaternion`, times, quatValues));
+    }
+    if (boneName === 'hips'){
+      const posTimes = [];
+      const posValues = [];
+      perFrameSamples.forEach((s) => {
+        const b = s.bones.get('hips');
+        if (!b || !b.pos) return;
+        posTimes.push(s.time);
+        posValues.push(b.pos.x, b.pos.y, b.pos.z);
+      });
+      if (posTimes.length){
+        tracks.push(new THREE.VectorKeyframeTrack(`${node.name}.position`, posTimes, posValues));
+      }
+    }
+  });
+
+  const duration = frames.length ? frames[frames.length - 1].t : 0;
+  const clip = new THREE.AnimationClip('hanagasa-odori', duration, tracks);
+  local.clip = clip;
+  local.mixer = new THREE.AnimationMixer(vrm.scene);
+  local.action = local.mixer.clipAction(clip);
+  local.action.play();
+
+  vrmProgressText.textContent = `完了 — ${frames.length}フレームをベイクしました(${duration.toFixed(1)}秒)`;
+  vrmProgressFill.style.width = '100%';
+  vrmPlaybackControls.style.display = 'flex';
+  vrmExportBtn.disabled = false;
+  retargetBtn.disabled = false;
+}
+
+retargetBtn.addEventListener('click', retarget);
+
+vrmPlayBtn.addEventListener('click', () => {
+  if (local.action){ local.action.paused = false; if (!local.action.isRunning()) local.action.play(); }
+});
+vrmPauseBtn.addEventListener('click', () => {
+  if (local.action) local.action.paused = true;
+});
+
+vrmExportBtn.addEventListener('click', () => {
+  if (!local.vrm || !local.clip) return;
+  const exporter = new GLTFExporter();
+  exporter.parse(
+    local.vrm.scene,
+    (result) => {
+      const blob = new Blob([result], { type: 'application/octet-stream' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'hanagasa-odori-animated.glb';
+      a.click();
+    },
+    (err) => console.error(err),
+    { binary: true, animations: [local.clip] }
+  );
 });
 </script>
 </body>
