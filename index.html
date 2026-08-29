@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 <style>
   :root{
     --bg: #12151d;
@@ -171,6 +173,31 @@
   .preview-stage video{ width:100%; border-radius:8px; background:#000; }
   .preview-stage .cap{ font-size:11px; color: var(--text-faint); margin-top:6px; font-family: var(--mono); }
 
+  .pose-panel{
+    display:none; background: var(--bg-panel); border:1px solid var(--border); border-radius:10px;
+    padding: 20px 22px; margin-bottom: 28px;
+  }
+  .pose-panel.visible{ display:block; }
+  .pose-panel select{
+    background: var(--bg-panel-raised); color: var(--text); border:1px solid var(--border);
+    border-radius:7px; padding:10px 12px; font-size:13.5px; font-family:'Zen Kaku Gothic New',sans-serif;
+  }
+  .pose-progress{
+    font-size:12.5px; color: var(--text-dim); margin: 4px 0 16px; font-family: var(--mono);
+    display:none;
+  }
+  .pose-progress.visible{ display:block; }
+  .pose-progress-bar{
+    height:4px; background: var(--border); border-radius:2px; margin-top:6px; overflow:hidden;
+  }
+  .pose-progress-bar-fill{ height:100%; background: var(--accent); width:0%; transition: width .1s linear; }
+  .pose-stage{
+    position:relative; width:100%; max-width: 640px; border-radius:8px; overflow:hidden;
+    background:#000; display:none;
+  }
+  .pose-stage.visible{ display:block; }
+  .pose-stage canvas{ width:100%; display:block; }
+
   footer.note{
     margin-top: 40px; padding-top: 20px; border-top:1px solid var(--border-soft);
     font-size: 12px; color: var(--text-faint); line-height:1.7;
@@ -215,6 +242,22 @@
     <button class="secondary" id="pauseSyncBtn">一時停止</button>
   </div>
   <div class="preview-stage" id="previewStage"></div>
+
+  <div class="section-label" id="poseSectionLabel" style="display:none;">03 — 骨格推定(MediaPipe Holistic)</div>
+  <div class="pose-panel" id="posePanel">
+    <div class="controls-row">
+      <select id="poseSourceSelect"></select>
+      <button class="primary" id="runPoseBtn">姿勢推定を実行</button>
+      <button class="secondary" id="exportPoseBtn" disabled>骨格データをJSON書き出し</button>
+    </div>
+    <div class="pose-progress" id="poseProgress">
+      <span id="poseProgressText">待機中</span>
+      <div class="pose-progress-bar"><div class="pose-progress-bar-fill" id="poseProgressFill"></div></div>
+    </div>
+    <div class="pose-stage" id="poseStage">
+      <canvas id="poseCanvas"></canvas>
+    </div>
+  </div>
 
   <footer class="note">
     手拍子の検出は、各動画の音声から短時間RMSエンベロープを算出し、立ち上がりが最も急峻な地点(先頭5秒以内を優先)を目印として採用しています。誤検出時は各スロットの ± ボタンでフレーム単位に手動補正できます。すべての処理はブラウザ内で完結し、動画ファイルは外部に送信されません。
@@ -484,6 +527,7 @@ analyzeBtn.addEventListener('click', () => {
   buildPreviewStage(active);
   exportBtn.disabled = false;
   statusLine.innerHTML = `<strong>${active.length}本の動画を同期しました。</strong>`;
+  revealPoseSection(active);
 });
 
 exportBtn.addEventListener('click', () => {
@@ -555,6 +599,164 @@ document.getElementById('pauseSyncBtn').addEventListener('click', () => {
 
 buildSlots();
 refreshControls();
+
+// --- pose estimation (MediaPipe Holistic, offline frame-stepping) ----
+
+const poseSectionLabel = document.getElementById('poseSectionLabel');
+const posePanel = document.getElementById('posePanel');
+const poseSourceSelect = document.getElementById('poseSourceSelect');
+const runPoseBtn = document.getElementById('runPoseBtn');
+const exportPoseBtn = document.getElementById('exportPoseBtn');
+const poseProgress = document.getElementById('poseProgress');
+const poseProgressText = document.getElementById('poseProgressText');
+const poseProgressFill = document.getElementById('poseProgressFill');
+const poseStage = document.getElementById('poseStage');
+const poseCanvas = document.getElementById('poseCanvas');
+
+let holisticInstance = null;
+let poseRunning = false;
+
+function revealPoseSection(active){
+  poseSectionLabel.style.display = 'block';
+  posePanel.classList.add('visible');
+  poseSourceSelect.innerHTML = active
+    .map(s => `<option value="${s.index}">${s.meta.label} — ${s.file.name}</option>`)
+    .join('');
+}
+
+function seeked(video){
+  return new Promise(resolve => {
+    const handler = () => { video.removeEventListener('seeked', handler); resolve(); };
+    video.addEventListener('seeked', handler);
+  });
+}
+
+function getHolistic(){
+  if (holisticInstance) return holisticInstance;
+  holisticInstance = new Holistic({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`,
+  });
+  holisticInstance.setOptions({
+    modelComplexity: 1,
+    smoothLandmarks: true,
+    refineFaceLandmarks: false,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5,
+  });
+  return holisticInstance;
+}
+
+function stripLandmarks(landmarks){
+  if (!landmarks) return null;
+  return landmarks.map(p => ({
+    x: Number(p.x.toFixed(5)),
+    y: Number(p.y.toFixed(5)),
+    z: Number(p.z.toFixed(5)),
+    visibility: p.visibility !== undefined ? Number(p.visibility.toFixed(3)) : undefined,
+  }));
+}
+
+async function runPoseEstimation(slotIndex){
+  const slot = state.slots[slotIndex];
+  if (!slot) return;
+
+  runPoseBtn.disabled = true;
+  exportPoseBtn.disabled = true;
+  poseProgress.classList.add('visible');
+  poseStage.classList.add('visible');
+  poseProgressText.textContent = 'モデルを読み込み中…';
+
+  const video = document.createElement('video');
+  video.src = URL.createObjectURL(slot.file);
+  video.muted = true;
+  video.playsInline = true;
+  await new Promise(res => { video.onloadedmetadata = res; });
+
+  const fps = parseFloat(fpsInput.value) || 30;
+  const startTime = slot.clapTime || 0;
+  const duration = video.duration;
+  const frameInterval = 1 / fps;
+  const totalFrames = Math.max(1, Math.floor((duration - startTime) * fps));
+
+  poseCanvas.width = video.videoWidth;
+  poseCanvas.height = video.videoHeight;
+  const ctx = poseCanvas.getContext('2d');
+
+  const holistic = getHolistic();
+  let latestResults = null;
+  holistic.onResults((results) => { latestResults = results; });
+
+  const captured = [];
+  let t = startTime;
+  let frameIdx = 0;
+  poseRunning = true;
+
+  while (t < duration && poseRunning){
+    video.currentTime = t;
+    await seeked(video);
+    await holistic.send({ image: video });
+
+    ctx.save();
+    ctx.clearRect(0, 0, poseCanvas.width, poseCanvas.height);
+    ctx.drawImage(video, 0, 0, poseCanvas.width, poseCanvas.height);
+    if (latestResults){
+      if (latestResults.poseLandmarks){
+        window.drawConnectors(ctx, latestResults.poseLandmarks, window.POSE_CONNECTIONS, { color: '#e8604c', lineWidth: 2 });
+        window.drawLandmarks(ctx, latestResults.poseLandmarks, { color: '#eef0f4', radius: 2 });
+      }
+      if (latestResults.leftHandLandmarks){
+        window.drawConnectors(ctx, latestResults.leftHandLandmarks, window.HAND_CONNECTIONS, { color: '#3d5a99', lineWidth: 1.5 });
+      }
+      if (latestResults.rightHandLandmarks){
+        window.drawConnectors(ctx, latestResults.rightHandLandmarks, window.HAND_CONNECTIONS, { color: '#3d5a99', lineWidth: 1.5 });
+      }
+    }
+    ctx.restore();
+
+    captured.push({
+      frame: frameIdx,
+      t: Number((t - startTime).toFixed(4)),
+      pose: stripLandmarks(latestResults && latestResults.poseLandmarks),
+      leftHand: stripLandmarks(latestResults && latestResults.leftHandLandmarks),
+      rightHand: stripLandmarks(latestResults && latestResults.rightHandLandmarks),
+    });
+
+    frameIdx++;
+    t += frameInterval;
+
+    const pct = Math.min(100, Math.round((frameIdx / totalFrames) * 100));
+    poseProgressFill.style.width = pct + '%';
+    poseProgressText.textContent = `フレーム ${frameIdx}/${totalFrames} 処理中(${pct}%)`;
+  }
+
+  state.poseData = {
+    slotIndex,
+    sourceFilename: slot.file.name,
+    frameRate: fps,
+    startTimeSeconds: startTime,
+    frames: captured,
+  };
+
+  poseProgressText.textContent = `完了 — ${captured.length}フレームを抽出しました`;
+  runPoseBtn.disabled = false;
+  exportPoseBtn.disabled = false;
+  poseRunning = false;
+}
+
+runPoseBtn.addEventListener('click', () => {
+  const slotIndex = parseInt(poseSourceSelect.value, 10);
+  if (isNaN(slotIndex)) return;
+  runPoseEstimation(slotIndex);
+});
+
+exportPoseBtn.addEventListener('click', () => {
+  if (!state.poseData) return;
+  const blob = new Blob([JSON.stringify(state.poseData, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `pose-${state.poseData.sourceFilename.replace(/\.[^.]+$/, '')}.json`;
+  a.click();
+});
 </script>
 </body>
 </html>
