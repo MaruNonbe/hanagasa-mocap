@@ -966,10 +966,27 @@ function rigHips(vrm, hipsRig, lerpFactor = 0.5){
   if (!bone || !hipsRig) return;
   const euler = new THREE.Euler(hipsRig.rotation.x, hipsRig.rotation.y, hipsRig.rotation.z, 'XYZ');
   bone.quaternion.slerp(new THREE.Quaternion().setFromEuler(euler), lerpFactor);
+  // x and z are mirrored between MediaPipe's camera-facing space and the VRM's
+  // forward-facing (-Z) space, so both must be inverted, not just z.
   bone.position.lerp(
-    new THREE.Vector3(hipsRig.position.x, hipsRig.position.y + 1, -hipsRig.position.z * 0.5),
+    new THREE.Vector3(-hipsRig.position.x, hipsRig.position.y + 1, -hipsRig.position.z),
     lerpFactor
   );
+}
+
+function rigHandWrist(vrm, side, poseRig, handLandmarks, lerpFactor = 0.4){
+  const wristKey = side + 'Hand';
+  const bone = vrm.humanoid?.getNormalizedBoneNode(toVRMBoneName(wristKey));
+  if (!bone || !poseRig || !poseRig[wristKey]) return;
+  const handRig = handLandmarks ? Kalidokit.Hand.solve(handLandmarks, side) : null;
+  const wristRotFromHand = handRig ? handRig[side + 'Wrist'] : null;
+  const euler = new THREE.Euler(
+    wristRotFromHand ? wristRotFromHand.x : 0,
+    wristRotFromHand ? wristRotFromHand.y : 0,
+    poseRig[wristKey].z || 0,
+    'XYZ'
+  );
+  bone.quaternion.slerp(new THREE.Quaternion().setFromEuler(euler), lerpFactor);
 }
 
 const FINGER_BONES = ['ThumbProximal','ThumbIntermediate','ThumbDistal',
@@ -978,7 +995,7 @@ const FINGER_BONES = ['ThumbProximal','ThumbIntermediate','ThumbDistal',
   'RingProximal','RingIntermediate','RingDistal',
   'LittleProximal','LittleIntermediate','LittleDistal'];
 
-function rigHand(vrm, handLandmarks, side){
+function rigHandFingers(vrm, handLandmarks, side){
   if (!handLandmarks) return;
   const rig = Kalidokit.Hand.solve(handLandmarks, side);
   if (!rig) return;
@@ -1003,8 +1020,10 @@ function applyFrameToVRM(vrm, frame){
   rigRotation(vrm, 'LeftLowerLeg', poseRig.LeftLowerLeg, 1, 0.4);
   rigRotation(vrm, 'RightUpperLeg', poseRig.RightUpperLeg, 1, 0.4);
   rigRotation(vrm, 'RightLowerLeg', poseRig.RightLowerLeg, 1, 0.4);
-  rigHand(vrm, frame.leftHand, 'Left');
-  rigHand(vrm, frame.rightHand, 'Right');
+  rigHandWrist(vrm, 'Left', poseRig, frame.leftHand);
+  rigHandWrist(vrm, 'Right', poseRig, frame.rightHand);
+  rigHandFingers(vrm, frame.leftHand, 'Left');
+  rigHandFingers(vrm, frame.rightHand, 'Right');
 }
 
 // bake all frames into an AnimationClip so it can be played back and exported
