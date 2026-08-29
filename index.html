@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>動画同期ツール — モーションキャプチャ前処理</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #12151d;
+    --bg-panel: #1a1f2b;
+    --bg-panel-raised: #202634;
+    --border: #2a3142;
+    --border-soft: #232a38;
+    --text: #edeff4;
+    --text-dim: #8b93a7;
+    --text-faint: #5a6377;
+    --accent: #e8604c;
+    --accent-soft: rgba(232, 96, 76, 0.14);
+    --accent-line: rgba(232, 96, 76, 0.4);
+    --indigo: #3d5a99;
+    --success: #6fcf97;
+    --success-soft: rgba(111, 207, 151, 0.12);
+    --mono: 'SF Mono', 'Consolas', 'Menlo', monospace;
+  }
+  *{ box-sizing: border-box; }
+  html, body{
+    margin:0; padding:0; background: var(--bg); color: var(--text);
+    font-family: 'Zen Kaku Gothic New', -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body{ min-height:100vh; }
+
+  .app{ max-width: 1180px; margin: 0 auto; padding: 40px 24px 100px; }
+
+  header.top{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    border-bottom: 1px solid var(--border); padding-bottom: 22px; margin-bottom: 34px;
+    gap: 20px; flex-wrap: wrap;
+  }
+  .brand-mark{
+    display:flex; align-items:center; gap:12px;
+  }
+  .brand-mark .dot{
+    width:10px; height:10px; border-radius:2px; background: var(--accent);
+    transform: rotate(45deg); flex-shrink:0;
+  }
+  h1{
+    font-family: 'Shippori Mincho', serif; font-weight:700;
+    font-size: 26px; letter-spacing: 0.02em; margin:0;
+  }
+  .subtitle{ color: var(--text-dim); font-size: 13.5px; margin-top: 4px; }
+  .fps-control{
+    display:flex; align-items:center; gap:10px; font-size:13px; color: var(--text-dim);
+  }
+  .fps-control input{
+    width:60px; background: var(--bg-panel); border:1px solid var(--border);
+    color: var(--text); border-radius:6px; padding:6px 8px; font-family: var(--mono); font-size:13px;
+  }
+
+  .section-label{
+    font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--text-faint); margin: 0 0 14px 2px; font-weight:600;
+  }
+
+  .slots{
+    display:grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 36px;
+  }
+  @media (max-width: 900px){ .slots{ grid-template-columns: 1fr; } }
+
+  .slot{
+    background: var(--bg-panel); border:1px solid var(--border); border-radius: 10px;
+    overflow:hidden; display:flex; flex-direction:column; min-height: 340px;
+  }
+  .slot-head{
+    display:flex; justify-content:space-between; align-items:center;
+    padding: 12px 14px; border-bottom: 1px solid var(--border-soft);
+  }
+  .slot-head .angle-label{ font-size:13px; font-weight:600; }
+  .slot-head .angle-sub{ font-size:11px; color: var(--text-faint); margin-top:1px; }
+  .slot-status{
+    font-size:10.5px; padding:3px 8px; border-radius:20px; border:1px solid var(--border);
+    color: var(--text-faint); letter-spacing:0.03em;
+  }
+  .slot-status.ready{ color: var(--success); border-color: rgba(111,207,151,0.3); background: var(--success-soft); }
+  .slot-status.analyzing{ color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
+
+  .drop{
+    flex:1; display:flex; align-items:center; justify-content:center; flex-direction:column;
+    gap:10px; padding: 24px; cursor:pointer; color: var(--text-faint);
+    border: 1px dashed var(--border); margin:12px; border-radius:8px; transition: border-color .15s, color .15s;
+  }
+  .drop:hover{ border-color: var(--accent-line); color: var(--text-dim); }
+  .drop svg{ opacity:0.5; }
+  .drop .hint{ font-size:12px; text-align:center; line-height:1.5; }
+  .drop .hint b{ color: var(--text-dim); font-weight:600; }
+
+  .slot-body{ display:none; flex-direction:column; flex:1; }
+  .slot.filled .drop{ display:none; }
+  .slot.filled .slot-body{ display:flex; }
+
+  video.preview{
+    width:100%; aspect-ratio: 16/9; background:#000; display:block; object-fit:cover;
+  }
+  .filename{
+    font-size:11.5px; color: var(--text-dim); padding: 8px 14px 0;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family: var(--mono);
+  }
+
+  .waveform-wrap{ padding: 8px 14px 4px; position:relative; }
+  canvas.waveform{ width:100%; height:64px; display:block; border-radius:4px; }
+  .clap-readout{
+    display:flex; justify-content:space-between; align-items:center;
+    padding: 6px 14px 12px; font-size:12px; color: var(--text-dim);
+  }
+  .clap-readout .time{ font-family: var(--mono); color: var(--text); }
+  .nudge{ display:flex; gap:4px; align-items:center; }
+  .nudge button{
+    width:22px; height:22px; border-radius:5px; border:1px solid var(--border);
+    background: var(--bg-panel-raised); color: var(--text-dim); cursor:pointer; font-size:13px;
+    display:flex; align-items:center; justify-content:center; line-height:1;
+  }
+  .nudge button:hover{ border-color: var(--accent-line); color: var(--accent); }
+
+  .controls-row{
+    display:flex; gap:14px; align-items:center; margin-bottom: 30px; flex-wrap:wrap;
+  }
+  button.primary{
+    background: var(--accent); color:#181008; border:none; font-weight:700;
+    padding: 12px 22px; border-radius: 8px; font-size:14px; cursor:pointer;
+    letter-spacing:0.01em; transition: filter .15s, transform .1s;
+    font-family:'Zen Kaku Gothic New',sans-serif;
+  }
+  button.primary:hover{ filter: brightness(1.08); }
+  button.primary:active{ transform: scale(0.98); }
+  button.primary:disabled{ background: var(--border); color: var(--text-faint); cursor:not-allowed; }
+
+  button.secondary{
+    background: transparent; color: var(--text-dim); border:1px solid var(--border);
+    padding: 11px 18px; border-radius:8px; font-size:13.5px; cursor:pointer;
+    font-family:'Zen Kaku Gothic New',sans-serif;
+  }
+  button.secondary:hover{ border-color: var(--accent-line); color: var(--text); }
+  button.secondary:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  .status-line{ font-size:13px; color: var(--text-dim); }
+  .status-line strong{ color: var(--success); }
+
+  .sync-panel{
+    background: var(--bg-panel); border:1px solid var(--border); border-radius:10px;
+    padding: 20px 22px; margin-bottom: 28px; display:none;
+  }
+  .sync-panel.visible{ display:block; }
+  .sync-panel h2{ font-size:14px; margin:0 0 14px; font-weight:600; color: var(--text); }
+  table.offsets{ width:100%; border-collapse:collapse; font-size:13px; }
+  table.offsets th{
+    text-align:left; color: var(--text-faint); font-weight:500; font-size:11px;
+    text-transform:uppercase; letter-spacing:0.06em; padding: 4px 10px 8px 0; border-bottom:1px solid var(--border-soft);
+  }
+  table.offsets td{ padding: 9px 10px 9px 0; border-bottom:1px solid var(--border-soft); font-family: var(--mono); }
+  table.offsets tr:last-child td{ border-bottom:none; }
+  .offset-positive{ color: var(--accent); }
+  .offset-zero{ color: var(--success); }
+
+  .preview-stage{
+    display:none; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-top: 18px;
+  }
+  .preview-stage.visible{ display:grid; }
+  .preview-stage video{ width:100%; border-radius:8px; background:#000; }
+  .preview-stage .cap{ font-size:11px; color: var(--text-faint); margin-top:6px; font-family: var(--mono); }
+
+  footer.note{
+    margin-top: 40px; padding-top: 20px; border-top:1px solid var(--border-soft);
+    font-size: 12px; color: var(--text-faint); line-height:1.7;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="top">
+    <div>
+      <div class="brand-mark">
+        <span class="dot"></span>
+        <h1>動画同期ツール</h1>
+      </div>
+      <div class="subtitle">複数カメラ収録の花笠踊り動画を、手拍子の合図で自動同期する</div>
+    </div>
+    <div class="fps-control">
+      フレームレート
+      <input type="number" id="fpsInput" value="30" min="1" max="240">
+      fps
+    </div>
+  </header>
+
+  <div class="section-label">01 — 動画を選択(1〜3本)</div>
+  <div class="slots" id="slots"></div>
+
+  <div class="controls-row">
+    <button class="primary" id="analyzeBtn" disabled>手拍子を検出して同期</button>
+    <button class="secondary" id="exportBtn" disabled>オフセットをJSON書き出し</button>
+    <div class="status-line" id="statusLine"></div>
+  </div>
+
+  <div class="sync-panel" id="syncPanel">
+    <h2>検出結果</h2>
+    <table class="offsets" id="offsetsTable"></table>
+  </div>
+
+  <div class="section-label" id="previewLabel" style="display:none;">02 — 同期プレビュー</div>
+  <div class="controls-row" id="previewControls" style="display:none;">
+    <button class="secondary" id="playSyncBtn">同期再生</button>
+    <button class="secondary" id="pauseSyncBtn">一時停止</button>
+  </div>
+  <div class="preview-stage" id="previewStage"></div>
+
+  <footer class="note">
+    手拍子の検出は、各動画の音声から短時間RMSエンベロープを算出し、立ち上がりが最も急峻な地点(先頭5秒以内を優先)を目印として採用しています。誤検出時は各スロットの ± ボタンでフレーム単位に手動補正できます。すべての処理はブラウザ内で完結し、動画ファイルは外部に送信されません。
+  </footer>
+
+</div>
+
+<script>
+const SLOT_META = [
+  { label: '正面', sub: '距離約4m' },
+  { label: '斜め45度', sub: '距離約4m' },
+  { label: '予備 / 3台目', sub: '任意' },
+];
+
+const state = {
+  slots: [null, null, null], // { file, videoEl, audioBuffer, envelope, envRate, clapTime, canvas }
+};
+
+const slotsEl = document.getElementById('slots');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const exportBtn = document.getElementById('exportBtn');
+const statusLine = document.getElementById('statusLine');
+const syncPanel = document.getElementById('syncPanel');
+const offsetsTable = document.getElementById('offsetsTable');
+const previewStage = document.getElementById('previewStage');
+const previewLabel = document.getElementById('previewLabel');
+const previewControls = document.getElementById('previewControls');
+const fpsInput = document.getElementById('fpsInput');
+
+function buildSlots(){
+  SLOT_META.forEach((meta, i) => {
+    const slot = document.createElement('div');
+    slot.className = 'slot';
+    slot.id = `slot-${i}`;
+    slot.innerHTML = `
+      <div class="slot-head">
+        <div>
+          <div class="angle-label">${meta.label}</div>
+          <div class="angle-sub">${meta.sub}</div>
+        </div>
+        <div class="slot-status" id="status-${i}">未選択</div>
+      </div>
+      <label class="drop" id="drop-${i}">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M12 3v12m0-12l-4 4m4-4l4 4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+        </svg>
+        <div class="hint"><b>動画を選択</b><br>タップしてファイルを選ぶ</div>
+        <input type="file" accept="video/*" style="display:none" id="file-${i}">
+      </label>
+      <div class="slot-body" id="body-${i}">
+        <video class="preview" id="video-${i}" muted playsinline></video>
+        <div class="filename" id="filename-${i}"></div>
+        <div class="waveform-wrap">
+          <canvas class="waveform" id="wave-${i}"></canvas>
+        </div>
+        <div class="clap-readout">
+          <span>手拍子位置: <span class="time" id="claptime-${i}">—</span></span>
+          <span class="nudge">
+            <button data-slot="${i}" data-dir="-1">−</button>
+            <button data-slot="${i}" data-dir="1">+</button>
+          </span>
+        </div>
+      </div>
+    `;
+    slotsEl.appendChild(slot);
+
+    const input = slot.querySelector(`#file-${i}`);
+    input.addEventListener('change', (e) => {
+      if (e.target.files[0]) handleFile(i, e.target.files[0]);
+    });
+  });
+
+  slotsEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-slot]');
+    if (!btn) return;
+    const i = parseInt(btn.dataset.slot, 10);
+    const dir = parseInt(btn.dataset.dir, 10);
+    nudgeClap(i, dir);
+  });
+}
+
+function setStatus(i, text, cls){
+  const el = document.getElementById(`status-${i}`);
+  el.textContent = text;
+  el.className = 'slot-status' + (cls ? ' ' + cls : '');
+}
+
+async function handleFile(i, file){
+  const slotEl = document.getElementById(`slot-${i}`);
+  slotEl.classList.add('filled');
+  document.getElementById(`filename-${i}`).textContent = file.name;
+  const videoEl = document.getElementById(`video-${i}`);
+  videoEl.src = URL.createObjectURL(file);
+
+  state.slots[i] = { file, videoEl, audioBuffer: null, envelope: null, envRate: null, clapTime: null };
+  setStatus(i, '音声を解析中…', 'analyzing');
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
+    state.slots[i].audioBuffer = audioBuffer;
+
+    const { envelope, envRate } = computeEnvelope(audioBuffer);
+    state.slots[i].envelope = envelope;
+    state.slots[i].envRate = envRate;
+
+    const clapIdx = detectClap(envelope);
+    state.slots[i].clapTime = clapIdx / envRate;
+
+    drawWaveform(i);
+    updateClapReadout(i);
+    setStatus(i, '読み込み完了', 'ready');
+  } catch (err) {
+    console.error(err);
+    setStatus(i, '音声を検出できません', '');
+  }
+
+  refreshControls();
+}
+
+// --- audio analysis -------------------------------------------------
+
+function computeEnvelope(audioBuffer){
+  const targetRate = 200; // envelope samples per second (5ms windows)
+  const raw = audioBuffer.getChannelData(0);
+  const sr = audioBuffer.sampleRate;
+  const windowSize = Math.floor(sr / targetRate);
+  const numWindows = Math.floor(raw.length / windowSize);
+  const envelope = new Float32Array(numWindows);
+  for (let w = 0; w < numWindows; w++){
+    let sumSq = 0;
+    const start = w * windowSize;
+    for (let s = 0; s < windowSize; s++){
+      const v = raw[start + s];
+      sumSq += v * v;
+    }
+    envelope[w] = Math.sqrt(sumSq / windowSize);
+  }
+  return { envelope, envRate: targetRate };
+}
+
+// Find the sharpest rising transient (the clap), searching the whole
+// clip but weighting the first few seconds since that's where the cue is.
+function detectClap(envelope){
+  const preferWindowSec = 8; // seconds where a clap is expected
+  const rate = 200;
+  const preferSamples = Math.min(envelope.length, preferWindowSec * rate);
+
+  const diffs = new Float32Array(envelope.length);
+  for (let i = 3; i < envelope.length; i++){
+    diffs[i] = envelope[i] - envelope[i - 3];
+  }
+
+  let bestIdx = 3;
+  let bestScore = -Infinity;
+  for (let i = 3; i < envelope.length; i++){
+    const inPreferWindow = i < preferSamples;
+    const weight = inPreferWindow ? 1.0 : 0.35;
+    const score = diffs[i] * weight;
+    if (score > bestScore){
+      bestScore = score;
+      bestIdx = i;
+    }
+  }
+  return bestIdx;
+}
+
+function drawWaveform(i){
+  const { envelope, clapTime, envRate } = state.slots[i];
+  const canvas = document.getElementById(`wave-${i}`);
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.clientWidth || 300;
+  const cssH = 64;
+  canvas.width = cssW * dpr;
+  canvas.height = cssH * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, cssW, cssH);
+  ctx.fillStyle = '#161b26';
+  ctx.fillRect(0, 0, cssW, cssH);
+
+  const max = Math.max(...envelope) || 1;
+  const step = Math.max(1, Math.floor(envelope.length / cssW));
+  ctx.fillStyle = '#3d5a99';
+  for (let x = 0; x < cssW; x++){
+    const idx = x * step;
+    let peak = 0;
+    for (let k = 0; k < step; k++){
+      const v = envelope[idx + k] || 0;
+      if (v > peak) peak = v;
+    }
+    const h = Math.max(1, (peak / max) * (cssH - 4));
+    ctx.fillRect(x, (cssH - h) / 2, 1, h);
+  }
+
+  const clapIdx = Math.round(clapTime * envRate);
+  const clapX = Math.min(cssW - 1, Math.floor(clapIdx / step));
+  ctx.strokeStyle = '#e8604c';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(clapX + 0.5, 0);
+  ctx.lineTo(clapX + 0.5, cssH);
+  ctx.stroke();
+}
+
+function updateClapReadout(i){
+  const t = state.slots[i].clapTime;
+  document.getElementById(`claptime-${i}`).textContent = formatTime(t);
+}
+
+function nudgeClap(i, dir){
+  const slot = state.slots[i];
+  if (!slot || slot.clapTime === null) return;
+  const fps = parseFloat(fpsInput.value) || 30;
+  slot.clapTime = Math.max(0, slot.clapTime + dir * (1 / fps));
+  updateClapReadout(i);
+  drawWaveform(i);
+  if (syncPanel.classList.contains('visible')) renderOffsetsTable();
+}
+
+function formatTime(sec){
+  if (sec === null || sec === undefined) return '—';
+  const m = Math.floor(sec / 60);
+  const s = (sec % 60).toFixed(2);
+  return `${m}:${s.padStart(5, '0')}`;
+}
+
+// --- sync computation -------------------------------------------------
+
+function activeSlots(){
+  return state.slots
+    .map((s, i) => ({ ...s, index: i, meta: SLOT_META[i] }))
+    .filter(s => s.file);
+}
+
+function renderOffsetsTable(){
+  const active = activeSlots();
+  const ref = active[0];
+  let rows = `<tr><th>カメラ</th><th>手拍子位置</th><th>基準とのオフセット</th><th>フレーム換算</th></tr>`;
+  const fps = parseFloat(fpsInput.value) || 30;
+  active.forEach(s => {
+    const offset = s.clapTime - ref.clapTime;
+    const cls = Math.abs(offset) < 0.001 ? 'offset-zero' : 'offset-positive';
+    const frames = Math.round(offset * fps);
+    rows += `<tr>
+      <td>${s.meta.label}</td>
+      <td>${formatTime(s.clapTime)}</td>
+      <td class="${cls}">${offset >= 0 ? '+' : ''}${offset.toFixed(3)}s</td>
+      <td>${frames >= 0 ? '+' : ''}${frames} frame</td>
+    </tr>`;
+  });
+  offsetsTable.innerHTML = rows;
+  syncPanel.classList.add('visible');
+}
+
+function refreshControls(){
+  const active = activeSlots();
+  analyzeBtn.disabled = active.length < 1;
+  exportBtn.disabled = !syncPanel.classList.contains('visible');
+}
+
+analyzeBtn.addEventListener('click', () => {
+  const active = activeSlots();
+  if (active.length === 0) return;
+  renderOffsetsTable();
+  buildPreviewStage(active);
+  exportBtn.disabled = false;
+  statusLine.innerHTML = `<strong>${active.length}本の動画を同期しました。</strong>`;
+});
+
+exportBtn.addEventListener('click', () => {
+  const active = activeSlots();
+  const ref = active[0];
+  const data = {
+    frameRate: parseFloat(fpsInput.value) || 30,
+    cameras: active.map(s => ({
+      slot: s.index,
+      angle: s.meta.label,
+      filename: s.file.name,
+      clapTimeSeconds: Number(s.clapTime.toFixed(4)),
+      offsetFromReferenceSeconds: Number((s.clapTime - ref.clapTime).toFixed(4)),
+    })),
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'sync-offsets.json';
+  a.click();
+});
+
+// --- synced preview -------------------------------------------------
+
+function buildPreviewStage(active){
+  previewStage.innerHTML = '';
+  previewLabel.style.display = 'block';
+  previewControls.style.display = 'flex';
+  previewStage.classList.add('visible');
+
+  active.forEach(s => {
+    const wrap = document.createElement('div');
+    const vid = document.createElement('video');
+    vid.controls = true;
+    vid.playsInline = true;
+    vid.src = URL.createObjectURL(s.file);
+    vid.id = `preview-vid-${s.index}`;
+    wrap.appendChild(vid);
+    const cap = document.createElement('div');
+    cap.className = 'cap';
+    cap.textContent = `${s.meta.label} — clap @ ${formatTime(s.clapTime)}`;
+    wrap.appendChild(cap);
+    previewStage.appendChild(wrap);
+  });
+
+  state._previewActive = active;
+}
+
+document.getElementById('playSyncBtn').addEventListener('click', async () => {
+  const active = state._previewActive;
+  if (!active) return;
+  await Promise.all(active.map(s => {
+    const vid = document.getElementById(`preview-vid-${s.index}`);
+    vid.currentTime = s.clapTime;
+    return Promise.resolve();
+  }));
+  active.forEach(s => {
+    document.getElementById(`preview-vid-${s.index}`).play();
+  });
+});
+
+document.getElementById('pauseSyncBtn').addEventListener('click', () => {
+  const active = state._previewActive;
+  if (!active) return;
+  active.forEach(s => {
+    document.getElementById(`preview-vid-${s.index}`).pause();
+  });
+});
+
+buildSlots();
+refreshControls();
+</script>
+</body>
+</html>
