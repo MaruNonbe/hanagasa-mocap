@@ -1008,6 +1008,23 @@ function rigHandFingers(vrm, handLandmarks, side){
 const LM = { leftHip: 23, rightHip: 24, leftKnee: 25, rightKnee: 26, leftAnkle: 27, rightAnkle: 28, leftFootIndex: 31, rightFootIndex: 32 };
 const VISIBILITY_THRESHOLD = 0.5;
 
+// MediaPipe's left/right body-landmark labels assume a mirrored (selfie-style)
+// input image. Our footage is recorded normally (not mirrored), so every
+// left/right pair needs to be swapped to match the dancer's true anatomy.
+// See: https://mediapipe.readthedocs.io/en/latest/solutions/hands.html
+const MIRROR_PAIRS = [[1,4],[2,5],[3,6],[7,8],[9,10],[11,12],[13,14],[15,16],[17,18],[19,20],[21,22],[23,24],[25,26],[27,28],[29,30],[31,32]];
+
+function mirrorBodyLandmarks(landmarks){
+  if (!landmarks) return landmarks;
+  const out = landmarks.map((p) => ({ ...p }));
+  MIRROR_PAIRS.forEach(([a, b]) => {
+    const tmp = out[a];
+    out[a] = out[b];
+    out[b] = tmp;
+  });
+  return out;
+}
+
 function avgVisibility(landmarks, indices){
   if (!landmarks) return 0;
   const vals = indices.map((i) => landmarks[i]?.visibility ?? 0);
@@ -1016,10 +1033,17 @@ function avgVisibility(landmarks, indices){
 
 function applyFrameToVRM(vrm, frame){
   if (!frame || !frame.pose) return;
-  const world3d = frame.poseWorld || frame.pose; // fallback for older JSON without world landmarks
+  // Correct MediaPipe's mirrored-input assumption before doing anything else.
+  const poseLm = mirrorBodyLandmarks(frame.pose);
+  const world3d = mirrorBodyLandmarks(frame.poseWorld) || poseLm; // fallback for older JSON without world landmarks
+  // MediaPipe's leftHand/rightHand labels are subject to the same mirrored
+  // assumption, so the source arrays are swapped here too.
+  const trueLeftHand = frame.rightHand;
+  const trueRightHand = frame.leftHand;
+
   // enableLegs is required for Kalidokit to compute leg rotations at all —
   // without it, leg output is unreliable/absent.
-  const poseRig = Kalidokit.Pose.solve(world3d, frame.pose, { runtime: 'mediapipe', enableLegs: true });
+  const poseRig = Kalidokit.Pose.solve(world3d, poseLm, { runtime: 'mediapipe', enableLegs: true });
   if (!poseRig) return;
   rigHips(vrm, poseRig.Hips);
   rigRotation(vrm, 'Chest', poseRig.Spine, 0.25, 0.4);
@@ -1033,8 +1057,8 @@ function applyFrameToVRM(vrm, frame){
   // self-occlusion). Skip updating a limb on frames where MediaPipe's own
   // confidence for its landmarks is low, rather than applying noisy values —
   // this holds the last good pose instead of jittering toward garbage.
-  const leftLegVis = avgVisibility(frame.pose, [LM.leftHip, LM.leftKnee, LM.leftAnkle]);
-  const rightLegVis = avgVisibility(frame.pose, [LM.rightHip, LM.rightKnee, LM.rightAnkle]);
+  const leftLegVis = avgVisibility(poseLm, [LM.leftHip, LM.leftKnee, LM.leftAnkle]);
+  const rightLegVis = avgVisibility(poseLm, [LM.rightHip, LM.rightKnee, LM.rightAnkle]);
   if (leftLegVis > VISIBILITY_THRESHOLD){
     rigRotation(vrm, 'LeftUpperLeg', poseRig.LeftUpperLeg, 1, 0.3);
     rigRotation(vrm, 'LeftLowerLeg', poseRig.LeftLowerLeg, 1, 0.3);
@@ -1046,10 +1070,10 @@ function applyFrameToVRM(vrm, frame){
     if (poseRig.RightFoot) rigRotation(vrm, 'RightFoot', poseRig.RightFoot, 1, 0.3);
   }
 
-  rigHandWrist(vrm, 'Left', poseRig, frame.leftHand);
-  rigHandWrist(vrm, 'Right', poseRig, frame.rightHand);
-  rigHandFingers(vrm, frame.leftHand, 'Left');
-  rigHandFingers(vrm, frame.rightHand, 'Right');
+  rigHandWrist(vrm, 'Left', poseRig, trueLeftHand);
+  rigHandWrist(vrm, 'Right', poseRig, trueRightHand);
+  rigHandFingers(vrm, trueLeftHand, 'Left');
+  rigHandFingers(vrm, trueRightHand, 'Right');
 }
 
 // bake all frames into an AnimationClip so it can be played back and exported
