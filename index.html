@@ -844,7 +844,8 @@ window.addEventListener('pose-data-ready', () => {
 function refreshRetargetReady(){
   const poseData = window.appState.poseData;
   const hasFrames = !!(poseData && poseData.frames && poseData.frames.length > 0);
-  retargetBtn.disabled = !(local.vrm && hasFrames);
+  const hasWorld = hasFrames && poseData.frames.some((f) => f.poseWorld);
+  retargetBtn.disabled = !(local.vrm && hasFrames && hasWorld);
 }
 
 // --- three.js viewport setup -----------------------------------------
@@ -934,15 +935,22 @@ poseJsonFileInput.addEventListener('change', async (e) => {
     if (frameCount === 0){
       vrmProgressText.textContent = `このJSONには骨格データ(frames)が含まれていません。ステップ3で書き出した pose-〇〇.json を選択してください(選択したファイル: ${file.name})。`;
       vrmProgress.classList.add('visible');
+      window.appState.poseData = null;
+      refreshRetargetReady();
+      return;
+    }
+
+    const hasWorld = data.frames.some((f) => f.poseWorld);
+    if (!hasWorld){
+      vrmProgressText.textContent = `⚠ このJSON(${frameCount}フレーム)には実寸3D座標(poseWorld)が含まれていないため、リターゲティングを実行できません。ステップ3を再実行して新しいJSONを作成してください(古い形式のデータでは腰の位置が壊れ、アバターが画面外に飛ぶ原因になります)。`;
+      vrmProgress.classList.add('visible');
+      window.appState.poseData = null; // don't let a stale, broken dataset proceed
       refreshRetargetReady();
       return;
     }
 
     window.appState.poseData = data;
-    const hasWorld = data.frames.some((f) => f.poseWorld);
-    vrmProgressText.textContent = hasWorld
-      ? `骨格データを読み込みました(${frameCount}フレーム)`
-      : `骨格データを読み込みました(${frameCount}フレーム)※実寸3D座標(poseWorld)が含まれていないため、精度が落ちます。ステップ3で再抽出することをおすすめします。`;
+    vrmProgressText.textContent = `骨格データを読み込みました(${frameCount}フレーム)`;
     vrmProgress.classList.add('visible');
     vrmSectionLabel.style.display = 'block';
     vrmPanel.style.display = 'block';
@@ -979,10 +987,18 @@ function rigHips(vrm, hipsRig, lerpFactor = 0.5){
   bone.quaternion.slerp(new THREE.Quaternion().setFromEuler(euler), lerpFactor);
   // x and z are mirrored between MediaPipe's camera-facing space and the VRM's
   // forward-facing (-Z) space, so both must be inverted, not just z.
-  bone.position.lerp(
-    new THREE.Vector3(-hipsRig.position.x, hipsRig.position.y + 1, -hipsRig.position.z),
-    lerpFactor
+  // Clamp to a sane range as a safety net: a single noisy/invalid frame
+  // (e.g. from malformed input data) should never send the avatar flying
+  // off-screen — cap displacement to roughly the size of the recording space.
+  const clamp = (v, lim) => Math.max(-lim, Math.min(lim, v));
+  const target = new THREE.Vector3(
+    clamp(-hipsRig.position.x, 2),
+    clamp(hipsRig.position.y + 1, 2.5),
+    clamp(-hipsRig.position.z, 2)
   );
+  if (Number.isFinite(target.x) && Number.isFinite(target.y) && Number.isFinite(target.z)){
+    bone.position.lerp(target, lerpFactor);
+  }
 }
 
 function rigHandWrist(vrm, side, poseRig, handLandmarks, lerpFactor = 0.4){
