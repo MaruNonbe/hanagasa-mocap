@@ -1145,7 +1145,7 @@ function rigRotation(vrm, kalidokitName, rotation, dampener = 1, lerpFactor = 0.
   bone.quaternion.slerp(quat, lerpFactor);
 }
 
-function rigHips(vrm, hipsRig, lerpFactor = 0.5){
+function rigHips(vrm, hipsRig, lerpFactor = 0.85){
   const bone = vrm.humanoid?.getNormalizedBoneNode('hips');
   if (!bone || !hipsRig) return;
   const euler = new THREE.Euler(hipsRig.rotation.x, hipsRig.rotation.y, hipsRig.rotation.z, 'XYZ');
@@ -1166,7 +1166,7 @@ function rigHips(vrm, hipsRig, lerpFactor = 0.5){
   }
 }
 
-function rigHandWrist(vrm, side, poseRig, handLandmarks, lerpFactor = 0.4){
+function rigHandWrist(vrm, side, poseRig, handLandmarks, lerpFactor = 0.7){
   const wristKey = side + 'Hand';
   const bone = vrm.humanoid?.getNormalizedBoneNode(toVRMBoneName(wristKey));
   if (!bone || !poseRig || !poseRig[wristKey]) return;
@@ -1192,7 +1192,7 @@ function rigHandFingers(vrm, handLandmarks, side){
   const rig = Kalidokit.Hand.solve(handLandmarks, side);
   if (!rig) return;
   FINGER_BONES.forEach((b) => {
-    rigRotation(vrm, side + b, rig[side + b], 1, 0.5);
+    rigRotation(vrm, side + b, rig[side + b], 1, 0.6);
   });
 }
 
@@ -1227,12 +1227,18 @@ function applyFrameToVRM(vrm, frame){
   const poseRig = Kalidokit.Pose.solve(world3d, poseLm, { runtime: 'mediapipe', enableLegs: true });
   if (!poseRig) return;
   rigHips(vrm, poseRig.Hips);
-  rigRotation(vrm, 'Chest', poseRig.Spine, 0.25, 0.4);
-  rigRotation(vrm, 'Spine', poseRig.Spine, 0.45, 0.4);
-  rigRotation(vrm, 'LeftUpperArm', poseRig.LeftUpperArm, 1, 0.4);
-  rigRotation(vrm, 'LeftLowerArm', poseRig.LeftLowerArm, 1, 0.4);
-  rigRotation(vrm, 'RightUpperArm', poseRig.RightUpperArm, 1, 0.4);
-  rigRotation(vrm, 'RightLowerArm', poseRig.RightLowerArm, 1, 0.4);
+  // Torso and arms carry comparatively little noise (confirmed by measuring
+  // frame-to-frame jitter against the baked output), so they use a much
+  // lighter smoothing factor than legs/fingers — enough to track fast
+  // twisting motion without lagging a frame or two behind, which was
+  // previously causing the arms to visibly clip into the torso as it
+  // rotated ahead of them.
+  rigRotation(vrm, 'Chest', poseRig.Spine, 0.25, 0.75);
+  rigRotation(vrm, 'Spine', poseRig.Spine, 0.45, 0.75);
+  rigRotation(vrm, 'LeftUpperArm', poseRig.LeftUpperArm, 1, 0.8);
+  rigRotation(vrm, 'LeftLowerArm', poseRig.LeftLowerArm, 1, 0.8);
+  rigRotation(vrm, 'RightUpperArm', poseRig.RightUpperArm, 1, 0.8);
+  rigRotation(vrm, 'RightLowerArm', poseRig.RightLowerArm, 1, 0.8);
 
   // Legs/feet are the least reliable part of a single-camera estimate (frequent
   // self-occlusion). Skip updating a limb on frames where MediaPipe's own
@@ -1241,14 +1247,14 @@ function applyFrameToVRM(vrm, frame){
   const leftLegVis = avgVisibility(poseLm, [LM.leftHip, LM.leftKnee, LM.leftAnkle]);
   const rightLegVis = avgVisibility(poseLm, [LM.rightHip, LM.rightKnee, LM.rightAnkle]);
   if (leftLegVis > VISIBILITY_THRESHOLD){
-    rigRotation(vrm, 'LeftUpperLeg', poseRig.LeftUpperLeg, 1, 0.3);
-    rigRotation(vrm, 'LeftLowerLeg', poseRig.LeftLowerLeg, 1, 0.3);
-    if (poseRig.LeftFoot) rigRotation(vrm, 'LeftFoot', poseRig.LeftFoot, 1, 0.3);
+    rigRotation(vrm, 'LeftUpperLeg', poseRig.LeftUpperLeg, 1, 0.45);
+    rigRotation(vrm, 'LeftLowerLeg', poseRig.LeftLowerLeg, 1, 0.45);
+    if (poseRig.LeftFoot) rigRotation(vrm, 'LeftFoot', poseRig.LeftFoot, 1, 0.45);
   }
   if (rightLegVis > VISIBILITY_THRESHOLD){
-    rigRotation(vrm, 'RightUpperLeg', poseRig.RightUpperLeg, 1, 0.3);
-    rigRotation(vrm, 'RightLowerLeg', poseRig.RightLowerLeg, 1, 0.3);
-    if (poseRig.RightFoot) rigRotation(vrm, 'RightFoot', poseRig.RightFoot, 1, 0.3);
+    rigRotation(vrm, 'RightUpperLeg', poseRig.RightUpperLeg, 1, 0.45);
+    rigRotation(vrm, 'RightLowerLeg', poseRig.RightLowerLeg, 1, 0.45);
+    if (poseRig.RightFoot) rigRotation(vrm, 'RightFoot', poseRig.RightFoot, 1, 0.45);
   }
 
   rigHandWrist(vrm, 'Left', poseRig, trueLeftHand);
