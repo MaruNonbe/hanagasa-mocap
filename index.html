@@ -227,6 +227,23 @@
 </style>
 </head>
 <body>
+<div id="fatalErrorBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:9999; background:#8b1e1e; color:#fff; padding:10px 16px; font:12px/1.5 monospace; white-space:pre-wrap; max-height:40vh; overflow:auto;"></div>
+<script>
+  // Surface otherwise-silent script errors (e.g. a bad import in a module
+  // script, which aborts that whole script with no visible sign in the UI)
+  // as a visible banner instead of a page that quietly does nothing.
+  function showFatalError(msg){
+    const el = document.getElementById('fatalErrorBanner');
+    el.style.display = 'block';
+    el.textContent = '⚠ スクリプトエラー: ' + msg + '\n(この内容をそのまま開発者に伝えてください)';
+  }
+  window.addEventListener('error', (e) => {
+    showFatalError((e.message || 'unknown error') + (e.filename ? ` (${e.filename}:${e.lineno})` : ''));
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    showFatalError('Promise rejection: ' + (e.reason?.message || e.reason));
+  });
+</script>
 <div class="app">
 
   <header class="top">
