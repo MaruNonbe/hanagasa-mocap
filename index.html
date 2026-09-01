@@ -980,6 +980,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { SkeletonUtils } from 'three/addons/utils/SkeletonUtils.js';
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 
 const vrmSectionLabel = document.getElementById('vrmSectionLabel');
@@ -1030,6 +1031,26 @@ function ensureViewport(){
   local.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   vrmViewport.appendChild(local.renderer.domElement);
 
+  // WebGL contexts can be lost under GPU/memory pressure (this scene loads a
+  // large VRM alongside MediaPipe + Three.js). Without handling this, the
+  // canvas silently goes black/blank and never recovers. We detect loss,
+  // pause our own render loop so it doesn't spam errors, and rebuild the
+  // context + reattach the current scene/camera once it's restored.
+  local.renderer.domElement.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    local.contextLost = true;
+    console.warn('WebGL context lost — will attempt to recover once restored.');
+  });
+  local.renderer.domElement.addEventListener('webglcontextrestored', () => {
+    local.contextLost = false;
+    const w = vrmViewport.clientWidth, h = vrmViewport.clientHeight;
+    if (w && h){
+      local.camera.aspect = w / h;
+      local.camera.updateProjectionMatrix();
+      local.renderer.setSize(w, h);
+    }
+  });
+
   const controls = new OrbitControls(local.camera, local.renderer.domElement);
   controls.target.set(0, 1.0, 0);
   controls.update();
@@ -1042,21 +1063,40 @@ function ensureViewport(){
   const clock = new THREE.Clock();
   function tick(){
     requestAnimationFrame(tick);
+    if (local.contextLost) return; // don't render/update against a dead GL context
     const delta = clock.getDelta();
-    if (local.mixer) local.mixer.update(delta);
-    if (local.vrm) local.vrm.update(delta);
+    if (local.mixer){
+      // The baked clip now drives the raw (skinned) bones directly, so we
+      // deliberately skip vrm.update()'s humanoid normalized->raw sync here —
+      // it would immediately overwrite what the mixer just set. The other
+      // VRM subsystems (spring bones, look-at, expressions) still run.
+      local.mixer.update(delta);
+      local.vrm?.springBoneManager?.update(delta);
+      local.vrm?.lookAt?.update(delta);
+      local.vrm?.expressionManager?.update(delta);
+    } else if (local.vrm){
+      local.vrm.update(delta);
+    }
     controls.update();
     local.renderer.render(local.scene, local.camera);
   }
   tick();
 
-  window.addEventListener('resize', () => {
-    const w = vrmViewport.clientWidth, h = vrmViewport.clientHeight;
-    if (!w || !h) return;
-    local.camera.aspect = w / h;
-    local.camera.updateProjectionMatrix();
-    local.renderer.setSize(w, h);
+  // A ResizeObserver on the container (rather than only window 'resize')
+  // catches layout changes that don't fire a window resize event — e.g. a
+  // mobile browser's address bar hiding/showing on scroll, which changes
+  // the viewport's actual size without a matching 'resize' event.
+  const resizeObserver = new ResizeObserver((entries) => {
+    for (const entry of entries){
+      const w = Math.round(entry.contentRect.width);
+      const h = Math.round(entry.contentRect.height);
+      if (!w || !h) continue; // a transient 0-size layout pass — ignore, don't break the renderer
+      local.camera.aspect = w / h;
+      local.camera.updateProjectionMatrix();
+      local.renderer.setSize(w, h);
+    }
   });
+  resizeObserver.observe(vrmViewport);
 }
 
 // --- loading VRM -------------------------------------------------------
@@ -1284,10 +1324,14 @@ async function retarget(){
 
   for (let i = 0; i < frames.length; i++){
     applyFrameToVRM(vrm, frames[i]);
+    // Propagate normalized-bone pose onto the raw bones that are actually
+    // skinned to the mesh — without this, the baked clip would only ever
+    // drive the (invisible, export-irrelevant) normalized proxy rig.
+    vrm.humanoid.update();
 
     const sample = { time: frames[i].t, bones: new Map() };
     vrm.humanoid.humanBones && Object.keys(vrm.humanoid.humanBones).forEach((boneName) => {
-      const node = vrm.humanoid.getNormalizedBoneNode(boneName);
+      const node = vrm.humanoid.getRawBoneNode(boneName);
       if (!node) return;
       trackedBoneNames.add(boneName);
       sample.bones.set(boneName, {
@@ -1307,7 +1351,7 @@ async function retarget(){
 
   const tracks = [];
   trackedBoneNames.forEach((boneName) => {
-    const node = vrm.humanoid.getNormalizedBoneNode(boneName);
+    const node = vrm.humanoid.getRawBoneNode(boneName);
     if (!node) return;
     const times = [];
     const quatValues = [];
@@ -1358,11 +1402,41 @@ vrmPauseBtn.addEventListener('click', () => {
   if (local.action) local.action.paused = true;
 });
 
+// GLTFExporter cannot serialize three-vrm's MToonMaterial (a custom
+// ShaderMaterial used for VRM's toon shading) — this is a known, unresolved
+// limitation of the exporter, not something specific to this app. We build a
+// throwaway clone of the model for export and swap each MToon material for
+// an equivalent MeshStandardMaterial (keeping the same texture/color) so
+// generic glTF viewers render it correctly, while the live preview above
+// keeps its original toon-shaded look.
+function buildExportableScene(vrm){
+  const clone = SkeletonUtils.clone(vrm.scene);
+  clone.traverse((obj) => {
+    if (!obj.isMesh && !obj.isSkinnedMesh) return;
+    const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
+    const replaced = materials.map((mat) => {
+      if (!mat || !mat.isMToonMaterial) return mat;
+      const std = new THREE.MeshStandardMaterial({
+        map: mat.map || null,
+        color: mat.color ? mat.color.clone() : new THREE.Color(1, 1, 1),
+        transparent: !!mat.transparent,
+        alphaTest: mat.alphaTest || 0,
+        side: mat.side,
+        name: mat.name,
+      });
+      return std;
+    });
+    obj.material = Array.isArray(obj.material) ? replaced : replaced[0];
+  });
+  return clone;
+}
+
 vrmExportBtn.addEventListener('click', () => {
   if (!local.vrm || !local.clip) return;
+  const exportScene = buildExportableScene(local.vrm);
   const exporter = new GLTFExporter();
   exporter.parse(
-    local.vrm.scene,
+    exportScene,
     (result) => {
       const blob = new Blob([result], { type: 'application/octet-stream' });
       const a = document.createElement('a');
