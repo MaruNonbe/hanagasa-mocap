@@ -842,7 +842,9 @@ window.addEventListener('pose-data-ready', () => {
 });
 
 function refreshRetargetReady(){
-  retargetBtn.disabled = !(local.vrm && window.appState.poseData);
+  const poseData = window.appState.poseData;
+  const hasFrames = !!(poseData && poseData.frames && poseData.frames.length > 0);
+  retargetBtn.disabled = !(local.vrm && hasFrames);
 }
 
 // --- three.js viewport setup -----------------------------------------
@@ -927,11 +929,20 @@ poseJsonFileInput.addEventListener('change', async (e) => {
   try {
     const text = await file.text();
     const data = JSON.parse(text);
+    const frameCount = data.frames?.length ?? 0;
+
+    if (frameCount === 0){
+      vrmProgressText.textContent = `このJSONには骨格データ(frames)が含まれていません。ステップ3で書き出した pose-〇〇.json を選択してください(選択したファイル: ${file.name})。`;
+      vrmProgress.classList.add('visible');
+      refreshRetargetReady();
+      return;
+    }
+
     window.appState.poseData = data;
-    const hasWorld = data.frames?.some((f) => f.poseWorld);
+    const hasWorld = data.frames.some((f) => f.poseWorld);
     vrmProgressText.textContent = hasWorld
-      ? `骨格データを読み込みました(${data.frames?.length ?? 0}フレーム)`
-      : `骨格データを読み込みました(${data.frames?.length ?? 0}フレーム)※実寸3D座標(poseWorld)が含まれていないため、精度が落ちます。ステップ3で再抽出することをおすすめします。`;
+      ? `骨格データを読み込みました(${frameCount}フレーム)`
+      : `骨格データを読み込みました(${frameCount}フレーム)※実寸3D座標(poseWorld)が含まれていないため、精度が落ちます。ステップ3で再抽出することをおすすめします。`;
     vrmProgress.classList.add('visible');
     vrmSectionLabel.style.display = 'block';
     vrmPanel.style.display = 'block';
@@ -1080,7 +1091,11 @@ function applyFrameToVRM(vrm, frame){
 async function retarget(){
   const vrm = local.vrm;
   const poseData = window.appState.poseData;
-  if (!vrm || !poseData) return;
+  if (!vrm || !poseData || !poseData.frames || poseData.frames.length === 0){
+    vrmProgressText.textContent = '骨格データが読み込まれていません。';
+    vrmProgress.classList.add('visible');
+    return;
+  }
 
   retargetBtn.disabled = true;
   vrmProgress.classList.add('visible');
