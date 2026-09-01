@@ -1019,22 +1019,14 @@ function rigHandFingers(vrm, handLandmarks, side){
 const LM = { leftHip: 23, rightHip: 24, leftKnee: 25, rightKnee: 26, leftAnkle: 27, rightAnkle: 28, leftFootIndex: 31, rightFootIndex: 32 };
 const VISIBILITY_THRESHOLD = 0.5;
 
-// MediaPipe's left/right body-landmark labels assume a mirrored (selfie-style)
-// input image. Our footage is recorded normally (not mirrored), so every
-// left/right pair needs to be swapped to match the dancer's true anatomy.
-// See: https://mediapipe.readthedocs.io/en/latest/solutions/hands.html
-const MIRROR_PAIRS = [[1,4],[2,5],[3,6],[7,8],[9,10],[11,12],[13,14],[15,16],[17,18],[19,20],[21,22],[23,24],[25,26],[27,28],[29,30],[31,32]];
-
-function mirrorBodyLandmarks(landmarks){
-  if (!landmarks) return landmarks;
-  const out = landmarks.map((p) => ({ ...p }));
-  MIRROR_PAIRS.forEach(([a, b]) => {
-    const tmp = out[a];
-    out[a] = out[b];
-    out[b] = tmp;
-  });
-  return out;
-}
+// NOTE: an earlier version of this function swapped left/right landmark pairs,
+// on the assumption that MediaPipe's left/right labels are mirrored (as they
+// are for a selfie-style webcam feed). Measuring the baked animation against
+// the source video showed that swap flips the body's front/back facing by
+// ~180 degrees (Kalidokit derives torso yaw from the left->right hip/shoulder
+// vector, so swapping the pair negates it). For this non-mirrored, third-person
+// recording, MediaPipe's raw labels already match the dancer's true anatomy,
+// so no swap is applied here.
 
 function avgVisibility(landmarks, indices){
   if (!landmarks) return 0;
@@ -1044,13 +1036,10 @@ function avgVisibility(landmarks, indices){
 
 function applyFrameToVRM(vrm, frame){
   if (!frame || !frame.pose) return;
-  // Correct MediaPipe's mirrored-input assumption before doing anything else.
-  const poseLm = mirrorBodyLandmarks(frame.pose);
-  const world3d = mirrorBodyLandmarks(frame.poseWorld) || poseLm; // fallback for older JSON without world landmarks
-  // MediaPipe's leftHand/rightHand labels are subject to the same mirrored
-  // assumption, so the source arrays are swapped here too.
-  const trueLeftHand = frame.rightHand;
-  const trueRightHand = frame.leftHand;
+  const poseLm = frame.pose;
+  const world3d = frame.poseWorld || poseLm; // fallback for older JSON without world landmarks
+  const trueLeftHand = frame.leftHand;
+  const trueRightHand = frame.rightHand;
 
   // enableLegs is required for Kalidokit to compute leg rotations at all —
   // without it, leg output is unreliable/absent.
