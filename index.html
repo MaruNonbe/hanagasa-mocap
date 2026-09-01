@@ -15,7 +15,8 @@
   "imports": {
     "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
     "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-    "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2/lib/three-vrm.module.js"
+    "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2/lib/three-vrm.module.js",
+    "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/+esm"
   }
 }
 </script>
@@ -797,7 +798,11 @@ async function runPoseEstimation(slotIndex){
 runPoseBtn.addEventListener('click', () => {
   const slotIndex = parseInt(poseSourceSelect.value, 10);
   if (isNaN(slotIndex)) return;
-  runPoseEstimation(slotIndex);
+  // Uses the HolisticLandmarker (Tasks Vision) implementation defined in the
+  // module script below — the legacy @mediapipe/holistic API used by
+  // runPoseEstimation() above does not provide real-world (metric) 3D
+  // landmarks, which Kalidokit needs for correct depth/position.
+  window.runPoseEstimationV2(slotIndex);
 });
 
 exportPoseBtn.addEventListener('click', () => {
@@ -808,6 +813,166 @@ exportPoseBtn.addEventListener('click', () => {
   a.download = `pose-${state.poseData.sourceFilename.replace(/\.[^.]+$/, '')}.json`;
   a.click();
 });
+</script>
+
+<script type="module">
+// HolisticLandmarker (MediaPipe Tasks Vision) — replaces the legacy
+// @mediapipe/holistic API used above for the classic runPoseEstimation()
+// function. The legacy API never officially exposed real-world (metric) 3D
+// pose landmarks in its JS build; this newer unified API does, which
+// Kalidokit needs to compute correct depth/position for the VRM retargeting
+// step. See: https://ai.google.dev/edge/mediapipe/solutions/vision/holistic_landmarker
+import { HolisticLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
+
+let holisticLandmarkerInstance = null;
+
+async function getHolisticLandmarker(){
+  if (holisticLandmarkerInstance) return holisticLandmarkerInstance;
+  const filesetResolver = await FilesetResolver.forVisionTasks(
+    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm'
+  );
+  holisticLandmarkerInstance = await HolisticLandmarker.createFromOptions(filesetResolver, {
+    baseOptions: {
+      modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/holistic_landmarker/holistic_landmarker/float16/latest/holistic_landmarker.task',
+      delegate: 'CPU', // GPU delegate has known unsupported-op issues for this bundle
+    },
+    runningMode: 'VIDEO',
+  });
+  return holisticLandmarkerInstance;
+}
+
+// Result fields may come back either as a flat landmark array or as a
+// per-detection array-of-arrays depending on API version — handle both.
+function unwrapLandmarks(x){
+  if (!x) return null;
+  if (Array.isArray(x) && x.length && Array.isArray(x[0])) return x[0].length ? x[0] : null;
+  if (Array.isArray(x) && x.length && typeof x[0]?.x === 'number') return x;
+  return null;
+}
+
+function stripLm(landmarks){
+  if (!landmarks) return null;
+  return landmarks.map((p) => ({
+    x: Number(p.x.toFixed(5)),
+    y: Number(p.y.toFixed(5)),
+    z: Number(p.z.toFixed(5)),
+    visibility: p.visibility !== undefined ? Number(p.visibility.toFixed(3)) : undefined,
+  }));
+}
+
+function seekedV2(video){
+  return new Promise((resolve) => {
+    const handler = () => { video.removeEventListener('seeked', handler); resolve(); };
+    video.addEventListener('seeked', handler);
+  });
+}
+
+window.runPoseEstimationV2 = async function runPoseEstimationV2(slotIndex){
+  const state = window.appState;
+  const slot = state.slots[slotIndex];
+  if (!slot) return;
+
+  const runPoseBtn = document.getElementById('runPoseBtn');
+  const exportPoseBtn = document.getElementById('exportPoseBtn');
+  const poseProgress = document.getElementById('poseProgress');
+  const poseProgressText = document.getElementById('poseProgressText');
+  const poseProgressFill = document.getElementById('poseProgressFill');
+  const poseStage = document.getElementById('poseStage');
+  const poseCanvas = document.getElementById('poseCanvas');
+  const fpsInput = document.getElementById('fpsInput');
+
+  runPoseBtn.disabled = true;
+  exportPoseBtn.disabled = true;
+  poseProgress.classList.add('visible');
+  poseStage.classList.add('visible');
+  poseProgressText.textContent = 'モデルを読み込み中…';
+
+  let landmarker;
+  try {
+    landmarker = await getHolisticLandmarker();
+  } catch (err) {
+    console.error(err);
+    poseProgressText.textContent = 'モデルの読み込みに失敗しました。ネットワーク設定をご確認ください。';
+    runPoseBtn.disabled = false;
+    return;
+  }
+
+  const video = document.createElement('video');
+  video.src = URL.createObjectURL(slot.file);
+  video.muted = true;
+  video.playsInline = true;
+  await new Promise((res) => { video.onloadedmetadata = res; });
+
+  const fps = parseFloat(fpsInput.value) || 30;
+  const startTime = slot.clapTime || 0;
+  const duration = video.duration;
+  const frameInterval = 1 / fps;
+  const totalFrames = Math.max(1, Math.floor((duration - startTime) * fps));
+
+  poseCanvas.width = video.videoWidth;
+  poseCanvas.height = video.videoHeight;
+  const ctx = poseCanvas.getContext('2d');
+
+  const captured = [];
+  let t = startTime;
+  let frameIdx = 0;
+  let tsMs = 0;
+
+  while (t < duration){
+    video.currentTime = t;
+    await seekedV2(video);
+
+    tsMs += 1; // detectForVideo requires strictly increasing timestamps
+    const result = landmarker.detectForVideo(video, tsMs);
+
+    const pose = unwrapLandmarks(result.poseLandmarks);
+    const poseWorld = unwrapLandmarks(result.poseWorldLandmarks);
+    const leftHand = unwrapLandmarks(result.leftHandLandmarks);
+    const rightHand = unwrapLandmarks(result.rightHandLandmarks);
+
+    ctx.clearRect(0, 0, poseCanvas.width, poseCanvas.height);
+    ctx.drawImage(video, 0, 0, poseCanvas.width, poseCanvas.height);
+    if (pose && window.POSE_CONNECTIONS){
+      window.drawConnectors(ctx, pose, window.POSE_CONNECTIONS, { color: '#e8604c', lineWidth: 2 });
+      window.drawLandmarks(ctx, pose, { color: '#eef0f4', radius: 2 });
+    }
+    if (leftHand && window.HAND_CONNECTIONS){
+      window.drawConnectors(ctx, leftHand, window.HAND_CONNECTIONS, { color: '#3d5a99', lineWidth: 1.5 });
+    }
+    if (rightHand && window.HAND_CONNECTIONS){
+      window.drawConnectors(ctx, rightHand, window.HAND_CONNECTIONS, { color: '#3d5a99', lineWidth: 1.5 });
+    }
+
+    captured.push({
+      frame: frameIdx,
+      t: Number((t - startTime).toFixed(4)),
+      pose: stripLm(pose),
+      poseWorld: stripLm(poseWorld),
+      leftHand: stripLm(leftHand),
+      rightHand: stripLm(rightHand),
+    });
+
+    frameIdx++;
+    t += frameInterval;
+    const pct = Math.min(100, Math.round((frameIdx / totalFrames) * 100));
+    poseProgressFill.style.width = pct + '%';
+    poseProgressText.textContent = `フレーム ${frameIdx}/${totalFrames} 処理中(${pct}%)`;
+  }
+
+  state.poseData = {
+    slotIndex,
+    sourceFilename: slot.file.name,
+    frameRate: fps,
+    startTimeSeconds: startTime,
+    frames: captured,
+  };
+
+  const withWorld = captured.filter((f) => f.poseWorld).length;
+  poseProgressText.textContent = `完了 — ${captured.length}フレームを抽出しました(実寸3D座標: ${withWorld}/${captured.length}フレーム)`;
+  runPoseBtn.disabled = false;
+  exportPoseBtn.disabled = false;
+  window.dispatchEvent(new CustomEvent('pose-data-ready'));
+};
 </script>
 
 <script type="module">
