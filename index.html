@@ -3,15 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>動画同期ツール — モーションキャプチャ前処理 V3.1</title>
+
+<title>動画同期ツール — モーションキャプチャ前処理 V3.2</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
 
+
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/kalidokit@1.1.4/dist/kalidokit.umd.js"></script>
+
 
 <script type="importmap">
 {
@@ -24,7 +30,9 @@
 }
 </script>
 
+
 <style>
+
 :root{
   --bg:#12151d;
   --bg-panel:#1a1f2b;
@@ -43,18 +51,23 @@
   --mono:'SF Mono','Consolas','Menlo',monospace;
 }
 
-*{box-sizing:border-box}
+*{
+  box-sizing:border-box
+}
 
-html,body{
+html,
+body{
   margin:0;
   padding:0;
   background:var(--bg);
   color:var(--text);
   font-family:'Zen Kaku Gothic New',-apple-system,sans-serif;
-  -webkit-font-smoothing:antialiased;
+  -webkit-font-smoothing:antialiased
 }
 
-body{min-height:100vh}
+body{
+  min-height:100vh
+}
 
 .app{
   max-width:1180px;
@@ -138,7 +151,9 @@ h1{
 }
 
 @media(max-width:900px){
-  .slots{grid-template-columns:1fr}
+  .slots{
+    grid-template-columns:1fr
+  }
 }
 
 .slot{
@@ -211,7 +226,9 @@ h1{
   color:var(--text-dim)
 }
 
-.drop svg{opacity:.5}
+.drop svg{
+  opacity:.5
+}
 
 .drop .hint{
   font-size:12px;
@@ -230,8 +247,13 @@ h1{
   flex:1
 }
 
-.slot.filled .drop{display:none}
-.slot.filled .slot-body{display:flex}
+.slot.filled .drop{
+  display:none
+}
+
+.slot.filled .slot-body{
+  display:flex
+}
 
 video.preview{
   width:100%;
@@ -324,8 +346,13 @@ button.primary{
   font-family:'Zen Kaku Gothic New',sans-serif
 }
 
-button.primary:hover{filter:brightness(1.08)}
-button.primary:active{transform:scale(.98)}
+button.primary:hover{
+  filter:brightness(1.08)
+}
+
+button.primary:active{
+  transform:scale(.98)
+}
 
 button.primary:disabled{
   background:var(--border);
@@ -359,7 +386,9 @@ button.secondary:disabled{
   color:var(--text-dim)
 }
 
-.status-line strong{color:var(--success)}
+.status-line strong{
+  color:var(--success)
+}
 
 .sync-panel{
   background:var(--bg-panel);
@@ -370,7 +399,9 @@ button.secondary:disabled{
   display:none
 }
 
-.sync-panel.visible{display:block}
+.sync-panel.visible{
+  display:block
+}
 
 .sync-panel h2{
   font-size:14px;
@@ -401,10 +432,17 @@ table.offsets td{
   font-family:var(--mono)
 }
 
-table.offsets tr:last-child td{border-bottom:none}
+table.offsets tr:last-child td{
+  border-bottom:none
+}
 
-.offset-positive{color:var(--accent)}
-.offset-zero{color:var(--success)}
+.offset-positive{
+  color:var(--accent)
+}
+
+.offset-zero{
+  color:var(--success)
+}
 
 .preview-stage{
   display:none;
@@ -413,7 +451,9 @@ table.offsets tr:last-child td{border-bottom:none}
   margin-top:18px
 }
 
-.preview-stage.visible{display:grid}
+.preview-stage.visible{
+  display:grid
+}
 
 .preview-stage video{
   width:100%;
@@ -437,7 +477,9 @@ table.offsets tr:last-child td{border-bottom:none}
   margin-bottom:28px
 }
 
-.pose-panel.visible{display:block}
+.pose-panel.visible{
+  display:block
+}
 
 .pose-panel select{
   background:var(--bg-panel-raised);
@@ -458,7 +500,9 @@ table.offsets tr:last-child td{border-bottom:none}
   display:none
 }
 
-.pose-progress.visible{display:block}
+.pose-progress.visible{
+  display:block
+}
 
 .pose-progress-bar{
   height:4px;
@@ -485,7 +529,9 @@ table.offsets tr:last-child td{border-bottom:none}
   display:none
 }
 
-.pose-stage.visible{display:block}
+.pose-stage.visible{
+  display:block
+}
 
 .pose-stage canvas{
   width:100%;
@@ -503,7 +549,9 @@ table.offsets tr:last-child td{border-bottom:none}
   overflow:hidden
 }
 
-.vrm-viewport.visible{display:block}
+.vrm-viewport.visible{
+  display:block
+}
 
 .vrm-viewport canvas{
   display:block;
@@ -518,7 +566,8 @@ table.offsets tr:last-child td{border-bottom:none}
   font-size:11px;
   color:var(--text-faint);
   font-family:var(--mono);
-  pointer-events:none
+  pointer-events:none;
+  z-index:2
 }
 
 footer.note{
@@ -529,214 +578,478 @@ footer.note{
   color:var(--text-faint);
   line-height:1.7
 }
+
 </style>
 </head>
 
+
 <body>
 
+
 <div id="fatalErrorBanner"
- style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;
- background:#8b1e1e;color:#fff;padding:10px 16px;font:12px/1.5 monospace;
- white-space:pre-wrap;max-height:40vh;overflow:auto;">
+ style="
+ display:none;
+ position:fixed;
+ top:0;
+ left:0;
+ right:0;
+ z-index:9999;
+ background:#8b1e1e;
+ color:#fff;
+ padding:10px 16px;
+ font:12px/1.5 monospace;
+ white-space:pre-wrap;
+ max-height:40vh;
+ overflow:auto;
+ ">
 
 <button id="fatalErrorClose"
- style="float:right;background:transparent;border:1px solid rgba(255,255,255,.4);
- color:#fff;border-radius:4px;padding:2px 8px;cursor:pointer;
- font-family:'Zen Kaku Gothic New',sans-serif;font-size:12px;">
+ style="
+ float:right;
+ background:transparent;
+ border:1px solid rgba(255,255,255,.4);
+ color:#fff;
+ border-radius:4px;
+ padding:2px 8px;
+ cursor:pointer;
+ font-family:'Zen Kaku Gothic New',sans-serif;
+ font-size:12px;
+ ">
 ✕ 閉じる
 </button>
 
 <div id="fatalErrorText"></div>
+
 </div>
 
-<script>
-function showFatalError(msg){
-  const el=document.getElementById('fatalErrorBanner');
-  const textEl=document.getElementById('fatalErrorText');
 
-  el.style.display='block';
-  textEl.textContent=
-    '⚠ スクリプトエラー: '+msg+
-    '\n(この内容をそのまま開発者に伝えてください)';
+<script>
+
+function showFatalError(msg){
+
+ const el=
+  document.getElementById(
+   'fatalErrorBanner'
+  );
+
+ const textEl=
+  document.getElementById(
+   'fatalErrorText'
+  );
+
+ el.style.display='block';
+
+ textEl.textContent=
+  '⚠ スクリプトエラー: '+
+  msg+
+  '\n(この内容をそのまま開発者に伝えてください)';
 }
 
-window.addEventListener('error',(e)=>{
-  showFatalError(
-    (e.message||'unknown error')+
-    (e.filename?` (${e.filename}:${e.lineno})`:'')
-  );
-});
 
-window.addEventListener('unhandledrejection',(e)=>{
-  showFatalError(
-    'Promise rejection: '+(e.reason?.message||e.reason)
-  );
-});
+window.addEventListener(
+ 'error',
+ e=>{
 
-document.getElementById('fatalErrorClose').addEventListener('click',()=>{
-  document.getElementById('fatalErrorBanner').style.display='none';
-});
+  showFatalError(
+   (e.message||'unknown error')+
+   (
+    e.filename
+    ?` (${e.filename}:${e.lineno})`
+    :''
+   )
+  );
+ }
+);
+
+
+window.addEventListener(
+ 'unhandledrejection',
+ e=>{
+
+  showFatalError(
+   'Promise rejection: '+
+   (
+    e.reason?.message||
+    e.reason||
+    'unknown rejection'
+   )
+  );
+ }
+);
+
+
+document
+ .getElementById('fatalErrorClose')
+ .addEventListener(
+  'click',
+  ()=>{
+   document
+    .getElementById(
+     'fatalErrorBanner'
+    )
+    .style.display='none';
+  }
+);
+
 </script>
+
 
 <div class="app">
 
+
 <header class="top">
+
 <div>
+
 <div class="brand-mark">
+
 <span class="dot"></span>
+
 <h1>動画同期ツール</h1>
+
 </div>
 
 <div class="subtitle">
 複数カメラ収録の花笠踊り動画を、手拍子の合図で自動同期する
 </div>
+
 </div>
+
 
 <div class="fps-control">
+
 フレームレート
-<input type="number" id="fpsInput" value="30" min="1" max="240">
+
+<input
+ type="number"
+ id="fpsInput"
+ value="30"
+ min="1"
+ max="240">
+
 fps
+
 </div>
+
 </header>
 
-<div class="section-label">01 — 動画を選択(1〜3本)</div>
-<div class="slots" id="slots"></div>
+
+<div class="section-label">
+01 — 動画を選択(1〜3本)
+</div>
+
+
+<div
+ class="slots"
+ id="slots">
+</div>
+
 
 <div class="controls-row">
-<button class="primary" id="analyzeBtn" disabled>
+
+<button
+ class="primary"
+ id="analyzeBtn"
+ disabled>
+
 手拍子を検出して同期
+
 </button>
 
-<button class="secondary" id="exportBtn" disabled>
+
+<button
+ class="secondary"
+ id="exportBtn"
+ disabled>
+
 オフセットをJSON書き出し
+
 </button>
 
-<div class="status-line" id="statusLine"></div>
+
+<div
+ class="status-line"
+ id="statusLine">
 </div>
 
-<div class="sync-panel" id="syncPanel">
+</div>
+
+
+<div
+ class="sync-panel"
+ id="syncPanel">
+
 <h2>検出結果</h2>
-<table class="offsets" id="offsetsTable"></table>
+
+<table
+ class="offsets"
+ id="offsetsTable">
+</table>
+
 </div>
 
-<div class="section-label" id="previewLabel" style="display:none;">
+
+<div
+ class="section-label"
+ id="previewLabel"
+ style="display:none;">
+
 02 — 同期プレビュー
+
 </div>
 
-<div class="controls-row" id="previewControls" style="display:none;">
-<button class="secondary" id="playSyncBtn">同期再生</button>
-<button class="secondary" id="pauseSyncBtn">一時停止</button>
-</div>
 
-<div class="preview-stage" id="previewStage"></div>
+<div
+ class="controls-row"
+ id="previewControls"
+ style="display:none;">
 
-<div class="section-label" id="poseSectionLabel" style="display:none;">
-03 — 骨格推定(MediaPipe Holistic)
-</div>
+<button
+ class="secondary"
+ id="playSyncBtn">
 
-<div class="pose-panel" id="posePanel">
+同期再生
 
-<div class="controls-row">
-
-<select id="poseSourceSelect"></select>
-
-<button class="primary" id="runPoseBtn">
-姿勢推定を実行
 </button>
 
-<button class="secondary" id="exportPoseBtn" disabled>
-骨格データをJSON書き出し
-</button>
+<button
+ class="secondary"
+ id="pauseSyncBtn">
 
-</div>
-
-<div class="pose-progress" id="poseProgress">
-
-<span id="poseProgressText">待機中</span>
-
-<div class="pose-progress-bar">
-<div class="pose-progress-bar-fill"
-id="poseProgressFill"></div>
-</div>
-
-</div>
-
-<div class="pose-stage" id="poseStage">
-<canvas id="poseCanvas"></canvas>
-</div>
-
-</div>
-
-<div class="section-label" id="vrmSectionLabel" style="display:none;">
-04 — VRMリターゲティング
-</div>
-
-<div class="pose-panel" id="vrmPanel" style="display:none;">
-
-<div class="controls-row">
-
-<label class="secondary"
-style="cursor:pointer;display:inline-flex;align-items:center;">
-VRM/glbを選択
-<input type="file"
-accept=".vrm,.glb"
-id="vrmFileInput"
-style="display:none">
-</label>
-
-<label class="secondary"
-style="cursor:pointer;display:inline-flex;align-items:center;">
-骨格データ(JSON)を読み込む
-<input type="file"
-accept=".json"
-id="poseJsonFileInput"
-style="display:none">
-</label>
-
-<button class="primary"
-id="retargetBtn"
-disabled>
-リターゲティングを実行
-</button>
-
-</div>
-
-<div class="pose-progress" id="vrmProgress">
-
-<span id="vrmProgressText">待機中</span>
-
-<div class="pose-progress-bar">
-<div class="pose-progress-bar-fill"
-id="vrmProgressFill"></div>
-</div>
-
-</div>
-
-<div class="controls-row"
-id="vrmPlaybackControls"
-style="display:none;">
-
-<button class="secondary" id="vrmPlayBtn">
-再生
-</button>
-
-<button class="secondary" id="vrmPauseBtn">
 一時停止
+
 </button>
 
-<button class="secondary"
-id="vrmExportBtn"
-disabled>
+</div>
+
+
+<div
+ class="preview-stage"
+ id="previewStage">
+</div>
+
+
+<div
+ class="section-label"
+ id="poseSectionLabel"
+ style="display:none;">
+
+03 — 骨格推定(MediaPipe Holistic)
+
+</div>
+
+
+<div
+ class="pose-panel"
+ id="posePanel">
+
+
+<div class="controls-row">
+
+<select
+ id="poseSourceSelect">
+</select>
+
+
+<button
+ class="primary"
+ id="runPoseBtn">
+
+姿勢推定を実行
+
+</button>
+
+
+<button
+ class="secondary"
+ id="exportPoseBtn"
+ disabled>
+
+骨格データをJSON書き出し
+
+</button>
+
+</div>
+
+
+<div
+ class="pose-progress"
+ id="poseProgress">
+
+<span
+ id="poseProgressText">
+
+待機中
+
+</span>
+
+
+<div class="pose-progress-bar">
+
+<div
+ class="pose-progress-bar-fill"
+ id="poseProgressFill">
+</div>
+
+</div>
+
+</div>
+
+
+<div
+ class="pose-stage"
+ id="poseStage">
+
+<canvas
+ id="poseCanvas">
+</canvas>
+
+</div>
+
+</div>
+
+
+<div
+ class="section-label"
+ id="vrmSectionLabel"
+ style="display:none;">
+
+04 — VRMリターゲティング
+
+</div>
+
+
+<div
+ class="pose-panel"
+ id="vrmPanel"
+ style="display:none;">
+
+
+<div class="controls-row">
+
+
+<label
+ class="secondary"
+ style="
+ cursor:pointer;
+ display:inline-flex;
+ align-items:center;
+ ">
+
+VRM/glbを選択
+
+<input
+ type="file"
+ accept=".vrm,.glb"
+ id="vrmFileInput"
+ style="display:none">
+
+</label>
+
+
+<label
+ class="secondary"
+ style="
+ cursor:pointer;
+ display:inline-flex;
+ align-items:center;
+ ">
+
+骨格データ(JSON)を読み込む
+
+<input
+ type="file"
+ accept=".json"
+ id="poseJsonFileInput"
+ style="display:none">
+
+</label>
+
+
+<button
+ class="primary"
+ id="retargetBtn"
+ disabled>
+
+リターゲティングを実行
+
+</button>
+
+</div>
+
+
+<div
+ class="pose-progress"
+ id="vrmProgress">
+
+<span
+ id="vrmProgressText">
+
+待機中
+
+</span>
+
+
+<div class="pose-progress-bar">
+
+<div
+ class="pose-progress-bar-fill"
+ id="vrmProgressFill">
+</div>
+
+</div>
+
+</div>
+
+
+<div
+ class="controls-row"
+ id="vrmPlaybackControls"
+ style="display:none;">
+
+<button
+ class="secondary"
+ id="vrmPlayBtn">
+
+再生
+
+</button>
+
+
+<button
+ class="secondary"
+ id="vrmPauseBtn">
+
+一時停止
+
+</button>
+
+
+<button
+ class="secondary"
+ id="vrmExportBtn"
+ disabled>
+
 アニメーション付きVRMをglbで書き出し
+
 </button>
 
 </div>
 
-<div class="vrm-viewport" id="vrmViewport">
-<div class="vrm-hint" id="vrmHint"></div>
+
+<div
+ class="vrm-viewport"
+ id="vrmViewport">
+
+<div
+ class="vrm-hint"
+ id="vrmHint">
 </div>
 
 </div>
+
+</div>
+
 
 <footer class="note">
 
@@ -745,318 +1058,705 @@ disabled>
 
 誤検出時は各スロットの ± ボタンでフレーム単位に手動補正できます。
 
-今回のV3.1では、屈伸時にアバター全体が上下して足が浮く問題を避けるため、
-モーションキャプチャの絶対的なHips位置をそのままVRMへ適用せず、
-初期姿勢を基準とした位置処理を行います。
+V3.2では動画シーク、MediaPipeの動画タイムスタンプ、
+骨格データの検証、VRMアニメーションベイク処理を強化しています。
+
+Hipsの絶対位置はVRMへ直接適用せず、
+初期姿勢を基準として固定します。
 
 すべての処理はブラウザ内で完結し、
 動画ファイルは外部に送信されません。
 
 </footer>
 
+
 </div>
+
 
 <script>
 
+
 const SLOT_META=[
- {label:'正面',sub:'距離約4m'},
- {label:'斜め45度',sub:'距離約4m'},
- {label:'予備 / 3台目',sub:'任意'}
+
+ {
+  label:'正面',
+  sub:'距離約4m'
+ },
+
+ {
+  label:'斜め45度',
+  sub:'距離約4m'
+ },
+
+ {
+  label:'予備 / 3台目',
+  sub:'任意'
+ }
+
 ];
 
+
 const state={
- slots:[null,null,null],
+
+ slots:[
+  null,
+  null,
+  null
+ ],
+
  poseData:null,
- _previewActive:null
+
+ _previewActive:null,
+
+ _previewUrls:[]
+
 };
+
 
 window.appState=state;
 
-const slotsEl=document.getElementById('slots');
-const analyzeBtn=document.getElementById('analyzeBtn');
-const exportBtn=document.getElementById('exportBtn');
-const statusLine=document.getElementById('statusLine');
-const syncPanel=document.getElementById('syncPanel');
-const offsetsTable=document.getElementById('offsetsTable');
-const previewStage=document.getElementById('previewStage');
-const previewLabel=document.getElementById('previewLabel');
-const previewControls=document.getElementById('previewControls');
-const fpsInput=document.getElementById('fpsInput');
+
+const slotsEl=
+ document.getElementById('slots');
+
+const analyzeBtn=
+ document.getElementById('analyzeBtn');
+
+const exportBtn=
+ document.getElementById('exportBtn');
+
+const statusLine=
+ document.getElementById('statusLine');
+
+const syncPanel=
+ document.getElementById('syncPanel');
+
+const offsetsTable=
+ document.getElementById('offsetsTable');
+
+const previewStage=
+ document.getElementById('previewStage');
+
+const previewLabel=
+ document.getElementById('previewLabel');
+
+const previewControls=
+ document.getElementById('previewControls');
+
+const fpsInput=
+ document.getElementById('fpsInput');
+
 
 function buildSlots(){
 
- SLOT_META.forEach((meta,i)=>{
+ SLOT_META.forEach(
+  (meta,i)=>{
 
-  const slot=document.createElement('div');
+   const slot=
+    document.createElement('div');
 
-  slot.className='slot';
-  slot.id=`slot-${i}`;
+   slot.className='slot';
 
-  slot.innerHTML=`
+   slot.id=
+    `slot-${i}`;
 
-  <div class="slot-head">
 
-   <div>
-    <div class="angle-label">${meta.label}</div>
-    <div class="angle-sub">${meta.sub}</div>
+   slot.innerHTML=`
+
+   <div class="slot-head">
+
+    <div>
+
+     <div class="angle-label">
+      ${meta.label}
+     </div>
+
+     <div class="angle-sub">
+      ${meta.sub}
+     </div>
+
+    </div>
+
+    <div
+     class="slot-status"
+     id="status-${i}">
+
+     未選択
+
+    </div>
+
    </div>
 
-   <div class="slot-status"
-        id="status-${i}">
-    未選択
-   </div>
 
-  </div>
+   <label
+    class="drop"
+    id="drop-${i}">
 
-  <label class="drop" id="drop-${i}">
+    <svg
+     width="28"
+     height="28"
+     viewBox="0 0 24 24"
+     fill="none"
+     stroke="currentColor"
+     stroke-width="1.5">
 
-   <svg width="28" height="28"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.5">
+     <path
+      d="M12 3v12m0-12l-4 4m4-4l4 4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
 
-    <path d="M12 3v12m0-12l-4 4m4-4l4 4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+    </svg>
 
-   </svg>
+    <div class="hint">
 
-   <div class="hint">
-    <b>動画を選択</b><br>
-    タップしてファイルを選ぶ
-   </div>
+     <b>動画を選択</b>
 
-   <input type="file"
-          accept="video/*"
-          style="display:none"
-          id="file-${i}">
+     <br>
 
-  </label>
+     タップしてファイルを選ぶ
 
-  <div class="slot-body">
+    </div>
 
-   <video class="preview"
-          id="video-${i}"
-          muted
-          playsinline>
-   </video>
 
-   <div class="filename"
-        id="filename-${i}">
-   </div>
+    <input
+     type="file"
+     accept="video/*"
+     style="display:none"
+     id="file-${i}">
 
-   <div class="waveform-wrap">
-    <canvas class="waveform"
-            id="wave-${i}">
-    </canvas>
-   </div>
+   </label>
 
-   <div class="clap-readout">
 
-    <span>
-     手拍子位置:
-     <span class="time"
-           id="claptime-${i}">
-      —
+   <div class="slot-body">
+
+    <video
+     class="preview"
+     id="video-${i}"
+     muted
+     playsinline>
+    </video>
+
+
+    <div
+     class="filename"
+     id="filename-${i}">
+    </div>
+
+
+    <div class="waveform-wrap">
+
+     <canvas
+      class="waveform"
+      id="wave-${i}">
+     </canvas>
+
+    </div>
+
+
+    <div class="clap-readout">
+
+     <span>
+
+      手拍子位置:
+
+      <span
+       class="time"
+       id="claptime-${i}">
+
+       —
+
+      </span>
+
      </span>
-    </span>
 
-    <span class="nudge">
 
-     <button data-slot="${i}"
-             data-dir="-1">−</button>
+     <span class="nudge">
 
-     <button data-slot="${i}"
-             data-dir="1">+</button>
+      <button
+       data-slot="${i}"
+       data-dir="-1">
 
-    </span>
+       −
+
+      </button>
+
+
+      <button
+       data-slot="${i}"
+       data-dir="1">
+
+       +
+
+      </button>
+
+     </span>
+
+    </div>
 
    </div>
 
-  </div>
-  `;
+   `;
 
-  slotsEl.appendChild(slot);
 
-  const input=slot.querySelector(`#file-${i}`);
+   slotsEl.appendChild(slot);
 
-  input.addEventListener('change',(e)=>{
-   if(e.target.files[0]){
-    handleFile(i,e.target.files[0]);
-   }
-  });
 
- });
+   const input=
+    slot.querySelector(
+     `#file-${i}`
+    );
 
- slotsEl.addEventListener('click',(e)=>{
 
-  const btn=e.target.closest('button[data-slot]');
-  if(!btn)return;
+   input.addEventListener(
+    'change',
+    e=>{
 
-  const i=parseInt(btn.dataset.slot,10);
-  const dir=parseInt(btn.dataset.dir,10);
+     const file=
+      e.target.files?.[0];
 
-  nudgeClap(i,dir);
+     if(file){
 
- });
+      handleFile(
+       i,
+       file
+      );
+     }
+
+    }
+   );
+
+  }
+ );
+
+
+ slotsEl.addEventListener(
+  'click',
+  e=>{
+
+   const btn=
+    e.target.closest(
+     'button[data-slot]'
+    );
+
+   if(!btn)return;
+
+   const i=
+    parseInt(
+     btn.dataset.slot,
+     10
+    );
+
+   const dir=
+    parseInt(
+     btn.dataset.dir,
+     10
+    );
+
+   nudgeClap(
+    i,
+    dir
+   );
+
+  }
+ );
+
 }
 
-function setStatus(i,text,cls){
 
- const el=document.getElementById(`status-${i}`);
+function setStatus(
+ i,
+ text,
+ cls
+){
+
+ const el=
+  document.getElementById(
+   `status-${i}`
+  );
 
  el.textContent=text;
- el.className='slot-status'+
-  (cls?' '+cls:'');
+
+ el.className=
+  'slot-status'+
+  (
+   cls
+   ?' '+cls
+   :''
+  );
+
 }
 
-async function handleFile(i,file){
 
- const old=state.slots[i];
+async function cleanupSlot(
+ i
+){
 
- if(old?.videoUrl){
-  URL.revokeObjectURL(old.videoUrl);
- }
+ const old=
+  state.slots[i];
 
- if(old?.audioContext){
+ if(!old)return;
+
+
+ if(old.videoUrl){
+
   try{
-   await old.audioContext.close();
+   URL.revokeObjectURL(
+    old.videoUrl
+   );
   }catch{}
  }
 
+
+ if(old.audioContext){
+
+  try{
+
+   await old.audioContext.close();
+
+  }catch{}
+ }
+
+
+ state.slots[i]=null;
+
+}
+
+
+async function handleFile(
+ i,
+ file
+){
+
+ await cleanupSlot(i);
+
+
  state.poseData=null;
 
- const slotEl=document.getElementById(`slot-${i}`);
 
- slotEl.classList.add('filled');
+ const slotEl=
+  document.getElementById(
+   `slot-${i}`
+  );
 
- document.getElementById(`filename-${i}`).textContent=file.name;
+ slotEl.classList.add(
+  'filled'
+ );
 
- const videoEl=document.getElementById(`video-${i}`);
 
- const videoUrl=URL.createObjectURL(file);
+ document.getElementById(
+  `filename-${i}`
+ ).textContent=
+  file.name;
+
+
+ const videoEl=
+  document.getElementById(
+   `video-${i}`
+  );
+
+
+ const videoUrl=
+  URL.createObjectURL(file);
+
 
  videoEl.src=videoUrl;
 
+
  state.slots[i]={
+
   file,
+
   videoEl,
+
   videoUrl,
+
   audioBuffer:null,
+
   audioContext:null,
+
   envelope:null,
+
   envRate:null,
+
   clapTime:null,
+
   audioAvailable:false,
-  clapDetected:false
+
+  clapDetected:false,
+
+  clapScore:null
+
  };
 
- setStatus(i,'音声を解析中…','analyzing');
+
+ setStatus(
+  i,
+  '音声を解析中…',
+  'analyzing'
+ );
+
+
+ updateClapReadout(i);
+
 
  try{
 
-  const arrayBuffer=await file.arrayBuffer();
+  const arrayBuffer=
+   await file.arrayBuffer();
 
-  const ctx=new(window.AudioContext||
-              window.webkitAudioContext)();
 
-  state.slots[i].audioContext=ctx;
+  const AudioContextClass=
+   window.AudioContext||
+   window.webkitAudioContext;
+
+
+  if(!AudioContextClass){
+
+   throw new Error(
+    'このブラウザではAudioContextを利用できません。'
+   );
+  }
+
+
+  const ctx=
+   new AudioContextClass();
+
+
+  state.slots[i].audioContext=
+   ctx;
+
 
   const audioBuffer=
-   await ctx.decodeAudioData(arrayBuffer.slice(0));
+   await ctx.decodeAudioData(
+    arrayBuffer.slice(0)
+   );
 
-  state.slots[i].audioBuffer=audioBuffer;
-  state.slots[i].audioAvailable=true;
 
-  const {envelope,envRate}=computeEnvelope(audioBuffer);
+  state.slots[i].audioBuffer=
+   audioBuffer;
 
-  state.slots[i].envelope=envelope;
-  state.slots[i].envRate=envRate;
+  state.slots[i].audioAvailable=
+   true;
 
-  const clapIdx=detectClap(envelope);
 
-  if(clapIdx===null){
+  const result=
+   computeEnvelope(
+    audioBuffer
+   );
+
+
+  state.slots[i].envelope=
+   result.envelope;
+
+  state.slots[i].envRate=
+   result.envRate;
+
+
+  const clap=
+   detectClap(
+    result.envelope
+   );
+
+
+  if(!clap){
+
    state.slots[i].clapTime=null;
+
    state.slots[i].clapDetected=false;
 
-   setStatus(i,'手拍子未検出','');
+   state.slots[i].clapScore=null;
+
+   setStatus(
+    i,
+    '手拍子未検出',
+    ''
+   );
+
   }else{
 
    state.slots[i].clapTime=
-    clapIdx/envRate;
+    clap.index/
+    result.envRate;
 
-   state.slots[i].clapDetected=true;
+   state.slots[i].clapDetected=
+    true;
+
+   state.slots[i].clapScore=
+    clap.score;
+
 
    drawWaveform(i);
+
    updateClapReadout(i);
 
-   setStatus(i,'読み込み完了','ready');
+
+   setStatus(
+    i,
+    '読み込み完了',
+    'ready'
+   );
+
   }
+
 
  }catch(err){
 
-  console.warn('音声解析失敗:',err);
+  console.warn(
+   '音声解析失敗:',
+   err
+  );
 
-  state.slots[i].audioAvailable=false;
-  state.slots[i].clapDetected=false;
-  state.slots[i].clapTime=null;
+
+  state.slots[i].audioAvailable=
+   false;
+
+  state.slots[i].clapDetected=
+   false;
+
+  state.slots[i].clapTime=
+   null;
+
 
   updateClapReadout(i);
 
-  setStatus(i,'音声なし・手動同期が必要','');
+
+  setStatus(
+   i,
+   '音声なし・手動同期が必要',
+   ''
+  );
 
  }
 
+
  refreshControls();
+
 }
 
-function computeEnvelope(audioBuffer){
+
+function computeEnvelope(
+ audioBuffer
+){
 
  const targetRate=200;
 
- const raw=audioBuffer.getChannelData(0);
- const sr=audioBuffer.sampleRate;
+ const raw=
+  audioBuffer.getChannelData(0);
+
+ const sr=
+  audioBuffer.sampleRate;
+
 
  const windowSize=
-  Math.max(1,Math.floor(sr/targetRate));
+  Math.max(
+   1,
+   Math.floor(
+    sr/targetRate
+   )
+  );
+
 
  const numWindows=
-  Math.floor(raw.length/windowSize);
+  Math.floor(
+   raw.length/
+   windowSize
+  );
+
 
  const envelope=
-  new Float32Array(numWindows);
+  new Float32Array(
+   numWindows
+  );
 
- for(let w=0;w<numWindows;w++){
+
+ for(
+  let w=0;
+  w<numWindows;
+  w++
+ ){
 
   let sumSq=0;
 
-  const start=w*windowSize;
+  const start=
+   w*windowSize;
 
-  for(let s=0;s<windowSize;s++){
 
-   const v=raw[start+s];
+  for(
+   let s=0;
+   s<windowSize;
+   s++
+  ){
 
-   sumSq+=v*v;
+   const v=
+    raw[start+s];
+
+   sumSq+=
+    v*v;
 
   }
 
+
   envelope[w]=
-   Math.sqrt(sumSq/windowSize);
+   Math.sqrt(
+    sumSq/
+    windowSize
+   );
+
  }
+
 
  return{
   envelope,
   envRate:targetRate
  };
+
 }
 
-function detectClap(envelope){
 
- if(!envelope || envelope.length<4){
+function median(
+ values
+){
+
+ if(!values.length)return 0;
+
+ const sorted=
+  Array.from(values)
+   .sort(
+    (a,b)=>a-b
+   );
+
+ const mid=
+  Math.floor(
+   sorted.length/2
+  );
+
+ if(sorted.length%2){
+
+  return sorted[mid];
+
+ }
+
+ return(
+  sorted[mid-1]+
+  sorted[mid]
+ )/2;
+
+}
+
+
+function detectClap(
+ envelope
+){
+
+ if(
+  !envelope||
+  envelope.length<10
+ ){
   return null;
  }
 
- const preferWindowSec=8;
+
  const rate=200;
+
+ const preferWindowSec=8;
 
  const preferSamples=
   Math.min(
@@ -1064,109 +1764,306 @@ function detectClap(envelope){
    preferWindowSec*rate
   );
 
+
+ /*
+  * 音量の代表値を求める。
+  *
+  * 単純な「最大の立ち上がり」だけだと、
+  * 音声やBGMの開始部分を
+  * 手拍子と誤認しやすいため、
+  * 周囲の音量に対してどれだけ急増したか
+  * を評価する。
+  */
+
+ const sampleValues=[];
+
+ const sampleStep=
+  Math.max(
+   1,
+   Math.floor(
+    envelope.length/2000
+   )
+  );
+
+
+ for(
+  let i=0;
+  i<envelope.length;
+  i+=sampleStep
+ ){
+
+  sampleValues.push(
+   envelope[i]
+  );
+
+ }
+
+
+ const base=
+  median(
+   sampleValues
+  );
+
+
+ const safeBase=
+  Math.max(
+   base,
+   0.00001
+  );
+
+
  let bestIdx=null;
+
  let bestScore=-Infinity;
 
- for(let i=3;i<envelope.length;i++){
+
+ for(
+  let i=4;
+  i<envelope.length;
+  i++
+ ){
+
+  const previous=
+   envelope[i-4];
+
+  const current=
+   envelope[i];
+
 
   const diff=
-   envelope[i]-envelope[i-3];
+   current-
+   previous;
+
+
+  /*
+   * 周囲の音量に対する
+   * 相対的な立ち上がり。
+   */
+
+  const relativeRise=
+   diff/
+   safeBase;
+
+
+  /*
+   * 現在の音量があまりにも小さい
+   * 無音部分を除外。
+   */
+
+  const levelRatio=
+   current/
+   safeBase;
+
+
+  if(levelRatio<1.5){
+   continue;
+  }
+
 
   const inPreferWindow=
    i<preferSamples;
 
-  const weight=
-   inPreferWindow?1.0:.35;
 
-  const score=diff*weight;
+  const weight=
+   inPreferWindow
+   ?1
+   :.35;
+
+
+  const score=
+   relativeRise*
+   weight;
+
 
   if(score>bestScore){
 
    bestScore=score;
+
    bestIdx=i;
+
   }
+
  }
 
- return bestIdx;
+
+ /*
+  * あまりにも弱い立ち上がりは
+  * 「手拍子未検出」とする。
+  */
+
+ if(
+  bestIdx===null||
+  !Number.isFinite(bestScore)||
+  bestScore<2.0
+ ){
+  return null;
+ }
+
+
+ return{
+  index:bestIdx,
+  score:bestScore
+ };
+
 }
+
 
 function drawWaveform(i){
 
- const slot=state.slots[i];
+ const slot=
+  state.slots[i];
 
  if(!slot?.envelope)return;
 
- const envelope=slot.envelope;
- const clapTime=slot.clapTime;
- const envRate=slot.envRate;
+
+ const envelope=
+  slot.envelope;
+
+ const clapTime=
+  slot.clapTime;
+
+ const envRate=
+  slot.envRate;
+
 
  const canvas=
-  document.getElementById(`wave-${i}`);
+  document.getElementById(
+   `wave-${i}`
+  );
+
 
  const dpr=
   window.devicePixelRatio||1;
+
 
  const cssW=
   canvas.clientWidth||300;
 
  const cssH=64;
 
- canvas.width=cssW*dpr;
- canvas.height=cssH*dpr;
 
- const ctx=canvas.getContext('2d');
+ canvas.width=
+  Math.max(
+   1,
+   Math.floor(cssW*dpr)
+  );
+
+ canvas.height=
+  Math.max(
+   1,
+   Math.floor(cssH*dpr)
+  );
+
+
+ const ctx=
+  canvas.getContext(
+   '2d'
+  );
+
 
  ctx.setTransform(
-  dpr,0,0,dpr,0,0
+  dpr,
+  0,
+  0,
+  dpr,
+  0,
+  0
  );
+
 
  ctx.clearRect(
-  0,0,cssW,cssH
+  0,
+  0,
+  cssW,
+  cssH
  );
 
- ctx.fillStyle='#161b26';
+
+ ctx.fillStyle=
+  '#161b26';
+
  ctx.fillRect(
-  0,0,cssW,cssH
+  0,
+  0,
+  cssW,
+  cssH
  );
+
 
  let max=0;
 
- for(let j=0;j<envelope.length;j++){
 
-  if(envelope[j]>max){
-   max=envelope[j];
+ for(
+  let j=0;
+  j<envelope.length;
+  j++
+ ){
+
+  if(
+   envelope[j]>max
+  ){
+
+   max=
+    envelope[j];
+
   }
+
  }
 
+
  max=max||1;
+
 
  const step=
   Math.max(
    1,
-   Math.floor(envelope.length/cssW)
+   Math.ceil(
+    envelope.length/
+    cssW
+   )
   );
 
- ctx.fillStyle='#3d5a99';
 
- for(let x=0;x<cssW;x++){
+ ctx.fillStyle=
+  '#3d5a99';
 
-  const idx=x*step;
+
+ for(
+  let x=0;
+  x<cssW;
+  x++
+ ){
+
+  const idx=
+   x*step;
 
   let peak=0;
 
-  for(let k=0;k<step;k++){
+
+  for(
+   let k=0;
+   k<step;
+   k++
+  ){
 
    const v=
-    envelope[idx+k]||0;
+    envelope[idx+k]||
+    0;
 
-   if(v>peak)peak=v;
+   if(v>peak){
+    peak=v;
+   }
+
   }
+
 
   const h=
    Math.max(
     1,
-    (peak/max)*(cssH-4)
+    (peak/max)*
+    (cssH-4)
    );
+
 
   ctx.fillRect(
    x,
@@ -1174,21 +2071,40 @@ function drawWaveform(i){
    1,
    h
   );
+
  }
 
- if(clapTime!==null){
+
+ if(
+  clapTime!==null&&
+  Number.isFinite(clapTime)
+ ){
 
   const clapIdx=
-   Math.round(clapTime*envRate);
+   Math.round(
+    clapTime*
+    envRate
+   );
+
 
   const clapX=
    Math.min(
     cssW-1,
-    Math.floor(clapIdx/step)
+    Math.max(
+     0,
+     Math.floor(
+      clapIdx/
+      step
+     )
+    )
    );
 
-  ctx.strokeStyle='#e8604c';
+
+  ctx.strokeStyle=
+   '#e8604c';
+
   ctx.lineWidth=1.5;
+
 
   ctx.beginPath();
 
@@ -1203,33 +2119,53 @@ function drawWaveform(i){
   );
 
   ctx.stroke();
+
  }
+
 }
+
 
 function updateClapReadout(i){
 
- const t=state.slots[i]?.clapTime;
+ const t=
+  state.slots[i]?.clapTime;
+
 
  document.getElementById(
   `claptime-${i}`
- ).textContent=formatTime(t);
+ ).textContent=
+  formatTime(t);
+
 }
 
-function nudgeClap(i,dir){
 
- const slot=state.slots[i];
+function nudgeClap(
+ i,
+ dir
+){
+
+ const slot=
+  state.slots[i];
 
  if(!slot)return;
 
- const fps=
-  parseFloat(fpsInput.value)||30;
 
- if(slot.clapTime===null){
+ const fps=
+  parseFloat(
+   fpsInput.value
+  )||30;
+
+
+ if(
+  slot.clapTime===null
+ ){
 
   slot.clapTime=0;
+
   slot.clapDetected=false;
 
  }
+
 
  slot.clapTime=
   Math.max(
@@ -1238,493 +2174,1023 @@ function nudgeClap(i,dir){
    dir*(1/fps)
   );
 
+
+ slot.clapDetected=true;
+
+
  updateClapReadout(i);
 
+
  if(slot.envelope){
+
   drawWaveform(i);
+
  }
 
- if(syncPanel.classList.contains('visible')){
+
+ if(
+  syncPanel.classList.contains(
+   'visible'
+  )
+ ){
+
   renderOffsetsTable();
+
  }
+
 
  refreshControls();
+
 }
 
-function formatTime(sec){
 
- if(sec===null||
-    sec===undefined||
-    !Number.isFinite(sec)){
+function formatTime(
+ sec
+){
+
+ if(
+  sec===null||
+  sec===undefined||
+  !Number.isFinite(sec)
+ ){
   return '—';
  }
 
- const m=Math.floor(sec/60);
 
- const s=(sec%60).toFixed(2);
+ const m=
+  Math.floor(
+   sec/60
+  );
 
- return`${m}:${s.padStart(5,'0')}`;
+
+ const s=
+  (sec%60)
+   .toFixed(2);
+
+
+ return(
+  `${m}:`+
+  s.padStart(5,'0')
+ );
+
 }
+
 
 function activeSlots(){
 
  return state.slots
-  .map((s,i)=>({
-   ...s,
-   index:i,
-   meta:SLOT_META[i]
-  }))
-  .filter(s=>
-   s.file &&
-   s.clapTime!==null &&
-   Number.isFinite(s.clapTime)
+  .map(
+   (s,i)=>({
+
+    ...s,
+
+    index:i,
+
+    meta:SLOT_META[i]
+
+   })
+  )
+  .filter(
+   s=>
+    s.file&&
+    s.clapTime!==null&&
+    Number.isFinite(
+     s.clapTime
+    )
   );
+
 }
+
 
 function renderOffsetsTable(){
 
- const active=activeSlots();
+ const active=
+  activeSlots();
+
 
  if(!active.length)return;
 
- const ref=active[0];
 
- let rows=
- `<tr>
+ const ref=
+  active[0];
+
+
+ let rows=`
+
+ <tr>
+
   <th>カメラ</th>
+
   <th>手拍子位置</th>
+
   <th>基準とのオフセット</th>
+
   <th>フレーム換算</th>
- </tr>`;
+
+ </tr>
+
+ `;
+
 
  const fps=
-  parseFloat(fpsInput.value)||30;
+  parseFloat(
+   fpsInput.value
+  )||30;
 
- active.forEach(s=>{
 
-  const offset=
-   s.clapTime-ref.clapTime;
+ active.forEach(
+  s=>{
 
-  const cls=
-   Math.abs(offset)<.001
-   ?'offset-zero'
-   :'offset-positive';
+   const offset=
+    s.clapTime-
+    ref.clapTime;
 
-  const frames=
-   Math.round(offset*fps);
 
-  rows+=`
-  <tr>
-   <td>${s.meta.label}</td>
-   <td>${formatTime(s.clapTime)}</td>
-   <td class="${cls}">
-    ${offset>=0?'+':''}${offset.toFixed(3)}s
-   </td>
-   <td>
-    ${frames>=0?'+':''}${frames} frame
-   </td>
-  </tr>`;
- });
+   const cls=
+    Math.abs(offset)<.001
+    ?'offset-zero'
+    :'offset-positive';
 
- offsetsTable.innerHTML=rows;
 
- syncPanel.classList.add('visible');
+   const frames=
+    Math.round(
+     offset*
+     fps
+    );
+
+
+   rows+=`
+
+   <tr>
+
+    <td>
+     ${s.meta.label}
+    </td>
+
+    <td>
+     ${formatTime(s.clapTime)}
+    </td>
+
+    <td class="${cls}">
+
+     ${offset>=0?'+':''}
+     ${offset.toFixed(3)}s
+
+    </td>
+
+    <td>
+
+     ${frames>=0?'+':''}
+     ${frames} frame
+
+    </td>
+
+   </tr>
+
+   `;
+
+  }
+ );
+
+
+ offsetsTable.innerHTML=
+  rows;
+
+
+ syncPanel.classList.add(
+  'visible'
+ );
+
 }
+
 
 function refreshControls(){
 
- const active=activeSlots();
+ const active=
+  activeSlots();
+
 
  analyzeBtn.disabled=
   active.length<1;
 
+
  exportBtn.disabled=
-  !syncPanel.classList.contains('visible');
+  !syncPanel.classList.contains(
+   'visible'
+  );
+
 }
 
-analyzeBtn.addEventListener('click',()=>{
 
- const all=
-  state.slots.filter(s=>s&&s.file);
+analyzeBtn.addEventListener(
+ 'click',
+ ()=>{
 
- const active=activeSlots();
+  const all=
+   state.slots.filter(
+    s=>
+     s&&
+     s.file
+   );
 
- if(!active.length)return;
 
- renderOffsetsTable();
+  const active=
+   activeSlots();
 
- buildPreviewStage(active);
 
- exportBtn.disabled=false;
+  if(!active.length)return;
 
- if(active.length<all.length){
 
-  statusLine.innerHTML=
-   `<strong>${active.length}本の動画を同期しました。</strong>`+
-   `<span style="color:var(--accent)"> ⚠ `+
-   `${all.length-active.length}本は手拍子未検出です。`+
-   `±ボタンで手動指定してください。</span>`;
+  renderOffsetsTable();
 
- }else{
 
-  statusLine.innerHTML=
-   `<strong>${active.length}本の動画を同期しました。</strong>`;
- }
+  buildPreviewStage(
+   active
+  );
 
- revealPoseSection(active);
-});
 
-exportBtn.addEventListener('click',()=>{
+  exportBtn.disabled=false;
 
- const active=activeSlots();
 
- if(!active.length)return;
+  if(
+   active.length<
+   all.length
+  ){
 
- const ref=active[0];
+   statusLine.innerHTML=
+    `<strong>`+
+    `${active.length}本の動画を同期しました。`+
+    `</strong>`+
 
- const data={
-  frameRate:
-   parseFloat(fpsInput.value)||30,
+    `<span style="color:var(--accent)">`+
+    ` ⚠ ${all.length-active.length}本は`+
+    `手拍子未検出です。±ボタンで手動指定してください。`+
+    `</span>`;
 
-  cameras:active.map(s=>({
+  }else{
 
-   slot:s.index,
+   statusLine.innerHTML=
+    `<strong>`+
+    `${active.length}本の動画を同期しました。`+
+    `</strong>`;
 
-   angle:s.meta.label,
+  }
 
-   filename:s.file.name,
 
-   clapTimeSeconds:
-    Number(s.clapTime.toFixed(4)),
+  revealPoseSection(
+   active
+  );
 
-   offsetFromReferenceSeconds:
-    Number(
-     (s.clapTime-ref.clapTime)
-     .toFixed(4)
+ });
+
+
+exportBtn.addEventListener(
+ 'click',
+ ()=>{
+
+  const active=
+   activeSlots();
+
+
+  if(!active.length)return;
+
+
+  const ref=
+   active[0];
+
+
+  const data={
+
+   frameRate:
+    parseFloat(
+     fpsInput.value
+    )||30,
+
+
+   cameras:
+    active.map(
+     s=>({
+
+      slot:s.index,
+
+      angle:s.meta.label,
+
+      filename:s.file.name,
+
+      clapTimeSeconds:
+       Number(
+        s.clapTime.toFixed(4)
+       ),
+
+      offsetFromReferenceSeconds:
+       Number(
+        (
+         s.clapTime-
+         ref.clapTime
+        ).toFixed(4)
+       )
+
+     })
     )
-  }))
- };
 
- const blob=new Blob(
-  [JSON.stringify(data,null,2)],
-  {type:'application/json'}
- );
+  };
 
- const a=document.createElement('a');
 
- a.href=URL.createObjectURL(blob);
- a.download='sync-offsets.json';
+  const blob=
+   new Blob(
+    [
+     JSON.stringify(
+      data,
+      null,
+      2
+     )
+    ],
+    {
+     type:
+      'application/json'
+    }
+   );
 
- a.click();
-});
 
-function buildPreviewStage(active){
+  const url=
+   URL.createObjectURL(
+    blob
+   );
+
+
+  const a=
+   document.createElement(
+    'a'
+   );
+
+
+  a.href=url;
+
+  a.download=
+   'sync-offsets.json';
+
+  a.click();
+
+
+  setTimeout(
+   ()=>{
+    URL.revokeObjectURL(
+     url
+    );
+   },
+   1000
+  );
+
+ });
+
+
+function clearPreviewUrls(){
+
+ state._previewUrls
+  .forEach(
+   url=>{
+    try{
+     URL.revokeObjectURL(
+      url
+     );
+    }catch{}
+   }
+  );
+
+
+ state._previewUrls=[];
+
+}
+
+
+function buildPreviewStage(
+ active
+){
+
+ clearPreviewUrls();
+
 
  previewStage.innerHTML='';
 
- previewLabel.style.display='block';
 
- previewControls.style.display='flex';
+ previewLabel.style.display=
+  'block';
 
- previewStage.classList.add('visible');
 
- active.forEach(s=>{
+ previewControls.style.display=
+  'flex';
 
-  const wrap=document.createElement('div');
 
-  const vid=document.createElement('video');
+ previewStage.classList.add(
+  'visible'
+ );
 
-  vid.controls=true;
-  vid.playsInline=true;
-  vid.src=URL.createObjectURL(s.file);
 
-  vid.id=`preview-vid-${s.index}`;
+ active.forEach(
+  s=>{
 
-  wrap.appendChild(vid);
+   const wrap=
+    document.createElement(
+     'div'
+    );
 
-  const cap=document.createElement('div');
 
-  cap.className='cap';
+   const vid=
+    document.createElement(
+     'video'
+    );
 
-  cap.textContent=
-   `${s.meta.label} — clap @ ${formatTime(s.clapTime)}`;
 
-  wrap.appendChild(cap);
+   vid.controls=true;
 
-  previewStage.appendChild(wrap);
- });
+   vid.playsInline=true;
 
- state._previewActive=active;
+   vid.muted=true;
+
+
+   const url=
+    URL.createObjectURL(
+     s.file
+    );
+
+
+   state._previewUrls.push(
+    url
+   );
+
+
+   vid.src=url;
+
+
+   vid.id=
+    `preview-vid-${s.index}`;
+
+
+   wrap.appendChild(
+    vid
+   );
+
+
+   const cap=
+    document.createElement(
+     'div'
+    );
+
+
+   cap.className='cap';
+
+
+   cap.textContent=
+    `${s.meta.label} — clap @ ${formatTime(s.clapTime)}`;
+
+
+   wrap.appendChild(
+    cap
+   );
+
+
+   previewStage.appendChild(
+    wrap
+   );
+
+  }
+ );
+
+
+ state._previewActive=
+  active;
+
 }
 
-async function seekTo(video,time){
 
- return new Promise((resolve,reject)=>{
+async function seekTo(
+ video,
+ time,
+ timeoutMs=5000
+){
 
-  let done=false;
+ if(!video){
+  throw new Error(
+   '動画要素がありません。'
+  );
+ }
 
-  const cleanup=()=>{
 
-   video.removeEventListener(
+ const duration=
+  Number.isFinite(
+   video.duration
+  )
+  ?video.duration
+  :Infinity;
+
+
+ const target=
+  Math.max(
+   0,
+   Math.min(
+    time,
+    Math.max(
+     0,
+     duration-
+     0.001
+    )
+   )
+  );
+
+
+ if(
+  Math.abs(
+   video.currentTime-
+   target
+  )<0.001
+ ){
+
+  return;
+
+ }
+
+
+ return new Promise(
+  (resolve,reject)=>{
+
+   let finished=false;
+
+   let timer=null;
+
+
+   const cleanup=()=>{
+
+    video.removeEventListener(
+     'seeked',
+     onSeeked
+    );
+
+    video.removeEventListener(
+     'error',
+     onError
+    );
+
+    if(timer){
+
+     clearTimeout(
+      timer
+     );
+
+     timer=null;
+
+    }
+
+   };
+
+
+   const finish=()=>{
+
+    if(finished)return;
+
+    finished=true;
+
+    cleanup();
+
+    resolve();
+
+   };
+
+
+   const fail=(
+    error
+   )=>{
+
+    if(finished)return;
+
+    finished=true;
+
+    cleanup();
+
+    reject(
+     error instanceof Error
+     ?error
+     :new Error(
+      '動画のシークに失敗しました。'
+     )
+    );
+
+   };
+
+
+   const onSeeked=()=>{
+    finish();
+   };
+
+
+   const onError=()=>{
+    fail(
+     new Error(
+      '動画のシークに失敗しました。'
+     )
+    );
+   };
+
+
+   video.addEventListener(
     'seeked',
     onSeeked
    );
 
-   video.removeEventListener(
+
+   video.addEventListener(
     'error',
     onError
    );
-  };
 
-  const finish=()=>{
-   if(done)return;
 
-   done=true;
+   timer=
+    setTimeout(
+     ()=>{
+      fail(
+       new Error(
+        `動画シークが${timeoutMs}ms以内に完了しませんでした。`
+       )
+      );
+     },
+     timeoutMs
+    );
 
-   cleanup();
 
-   resolve();
-  };
+   try{
 
-  const fail=(e)=>{
-   if(done)return;
+    video.currentTime=
+     target;
 
-   done=true;
+   }catch(err){
 
-   cleanup();
+    fail(err);
 
-   reject(
-    e instanceof Error
-    ?e
-    :new Error('動画のシークに失敗しました')
-   );
-  };
-
-  const onSeeked=()=>finish();
-
-  const onError=()=>fail(
-   new Error('動画のシークに失敗しました')
-  );
-
-  video.addEventListener(
-   'seeked',
-   onSeeked,
-   {once:true}
-  );
-
-  video.addEventListener(
-   'error',
-   onError,
-   {once:true}
-  );
-
-  try{
-
-   if(Math.abs(video.currentTime-time)<0.0001){
-
-    finish();
-
-   }else{
-
-    video.currentTime=time;
    }
 
-  }catch(err){
-
-   fail(err);
   }
+ );
 
- });
 }
 
-document.getElementById('playSyncBtn')
-.addEventListener('click',async()=>{
 
- const active=state._previewActive;
+document
+ .getElementById(
+  'playSyncBtn'
+ )
+ .addEventListener(
+  'click',
+  async()=>{
 
- if(!active)return;
+   const active=
+    state._previewActive;
 
- try{
 
-  await Promise.all(
-   active.map(async s=>{
+   if(!active)return;
 
-    const vid=
-     document.getElementById(
-      `preview-vid-${s.index}`
+
+   try{
+
+    await Promise.all(
+     active.map(
+      async s=>{
+
+       const vid=
+        document.getElementById(
+         `preview-vid-${s.index}`
+        );
+
+
+       await seekTo(
+        vid,
+        s.clapTime
+       );
+
+      }
+     )
+    );
+
+
+    const playResults=
+     await Promise.allSettled(
+      active.map(
+       s=>
+        document
+         .getElementById(
+          `preview-vid-${s.index}`
+         )
+         .play()
+     )
+    );
+
+
+    const failed=
+     playResults.filter(
+      r=>
+       r.status==='rejected'
      );
 
-    await seekTo(
-     vid,
-     s.clapTime
-    );
-   })
-  );
 
-  await Promise.all(
-   active.map(s=>
-    document
-     .getElementById(
-      `preview-vid-${s.index}`
-     )
-     .play()
-  ));
+    if(failed.length){
 
- }catch(err){
+     statusLine.textContent=
+      '同期再生を開始できない動画があります。';
 
-  console.error(err);
-  statusLine.textContent=
-   '同期再生に失敗しました。';
- }
-});
+    }
 
-document.getElementById('pauseSyncBtn')
-.addEventListener('click',()=>{
+   }catch(err){
 
- const active=state._previewActive;
+    console.error(err);
 
- if(!active)return;
+    statusLine.textContent=
+     '同期再生に失敗しました。';
 
- active.forEach(s=>{
+   }
 
-  document
-   .getElementById(
-    `preview-vid-${s.index}`
-   )
-   .pause();
+  }
+ );
 
- });
-});
+
+document
+ .getElementById(
+  'pauseSyncBtn'
+ )
+ .addEventListener(
+  'click',
+  ()=>{
+
+   const active=
+    state._previewActive;
+
+
+   if(!active)return;
+
+
+   active.forEach(
+    s=>{
+
+     const vid=
+      document.getElementById(
+       `preview-vid-${s.index}`
+      );
+
+
+     if(vid){
+      vid.pause();
+     }
+
+    }
+   );
+
+  }
+ );
+
 
 buildSlots();
+
 refreshControls();
 
+
 const poseSectionLabel=
- document.getElementById('poseSectionLabel');
+ document.getElementById(
+  'poseSectionLabel'
+ );
+
 
 const posePanel=
- document.getElementById('posePanel');
+ document.getElementById(
+  'posePanel'
+ );
+
 
 const poseSourceSelect=
- document.getElementById('poseSourceSelect');
+ document.getElementById(
+  'poseSourceSelect'
+ );
+
 
 const runPoseBtn=
- document.getElementById('runPoseBtn');
+ document.getElementById(
+  'runPoseBtn'
+ );
+
 
 const exportPoseBtn=
- document.getElementById('exportPoseBtn');
+ document.getElementById(
+  'exportPoseBtn'
+ );
+
 
 const poseProgress=
- document.getElementById('poseProgress');
+ document.getElementById(
+  'poseProgress'
+ );
+
 
 const poseProgressText=
- document.getElementById('poseProgressText');
+ document.getElementById(
+  'poseProgressText'
+ );
+
 
 const poseProgressFill=
- document.getElementById('poseProgressFill');
+ document.getElementById(
+  'poseProgressFill'
+ );
+
 
 const poseStage=
- document.getElementById('poseStage');
+ document.getElementById(
+  'poseStage'
+ );
+
 
 const poseCanvas=
- document.getElementById('poseCanvas');
+ document.getElementById(
+  'poseCanvas'
+ );
 
-function revealPoseSection(active){
 
- poseSectionLabel.style.display='block';
+function revealPoseSection(
+ active
+){
 
- posePanel.classList.add('visible');
+ poseSectionLabel.style.display=
+  'block';
+
+
+ posePanel.classList.add(
+  'visible'
+ );
+
 
  poseSourceSelect.innerHTML=
-  active.map(s=>
-   `<option value="${s.index}">
-    ${s.meta.label} — ${s.file.name}
-   </option>`
-  ).join('');
-}
-
-runPoseBtn.addEventListener('click',()=>{
-
- const slotIndex=
-  parseInt(
-   poseSourceSelect.value,
-   10
+  active.map(
+   s=>
+    `<option value="${s.index}">
+     ${s.meta.label} — ${s.file.name}
+    </option>`
+  ).join(
+   ''
   );
 
- if(Number.isNaN(slotIndex))return;
+}
 
- window.runPoseEstimationV2(
-  slotIndex
- );
-});
 
-exportPoseBtn.addEventListener('click',()=>{
+runPoseBtn.addEventListener(
+ 'click',
+ ()=>{
 
- if(!state.poseData)return;
+  const slotIndex=
+   parseInt(
+    poseSourceSelect.value,
+    10
+   );
 
- const blob=new Blob(
-  [JSON.stringify(
-   state.poseData,
-   null,
-   2
-  )],
-  {type:'application/json'}
- );
 
- const a=document.createElement('a');
+  if(
+   Number.isNaN(
+    slotIndex
+   )
+  ){
+   return;
+  }
 
- a.href=URL.createObjectURL(blob);
 
- a.download=
-  `pose-${state.poseData.sourceFilename
-   .replace(/\.[^.]+$/,'')}.json`;
+  window.runPoseEstimationV2(
+   slotIndex
+  );
 
- a.click();
-});
+ });
+
+
+exportPoseBtn.addEventListener(
+ 'click',
+ ()=>{
+
+  if(!state.poseData)return;
+
+
+  const blob=
+   new Blob(
+    [
+     JSON.stringify(
+      state.poseData,
+      null,
+      2
+     )
+    ],
+    {
+     type:
+      'application/json'
+    }
+   );
+
+
+  const url=
+   URL.createObjectURL(
+    blob
+   );
+
+
+  const a=
+   document.createElement(
+    'a'
+   );
+
+
+  a.href=url;
+
+
+  const filename=
+   state.poseData
+    .sourceFilename||
+   'pose';
+
+
+  a.download=
+   `pose-${filename.replace(
+    /\.[^.]+$/,
+    ''
+   )}.json`;
+
+
+  a.click();
+
+
+  setTimeout(
+   ()=>{
+    URL.revokeObjectURL(
+     url
+    );
+   },
+   1000
+  );
+
+ });
 
 </script>
 
 
 <script type="module">
 
+
 import{
  HolisticLandmarker,
  FilesetResolver
-}from'@mediapipe/tasks-vision';
+}
+from'@mediapipe/tasks-vision';
 
-let holisticLandmarkerInstance=null;
+
+let holisticLandmarkerInstance=
+ null;
+
 
 async function getHolisticLandmarker(){
 
- if(holisticLandmarkerInstance){
+ if(
+  holisticLandmarkerInstance
+ ){
   return holisticLandmarkerInstance;
  }
+
 
  const filesetResolver=
   await FilesetResolver.forVisionTasks(
    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm'
   );
 
+
  holisticLandmarkerInstance=
   await HolisticLandmarker.createFromOptions(
    filesetResolver,
    {
+
     baseOptions:{
+
      modelAssetPath:
       'https://storage.googleapis.com/mediapipe-models/holistic_landmarker/holistic_landmarker/float16/latest/holistic_landmarker.task',
+
      delegate:'CPU'
+
     },
 
     runningMode:'VIDEO'
+
    }
   );
 
+
  return holisticLandmarkerInstance;
+
 }
+
 
 function unwrapLandmarks(x){
 
- if(!x)return null;
+ if(!x){
+  return null;
+ }
+
 
  if(
   Array.isArray(x)&&
@@ -1735,7 +3201,9 @@ function unwrapLandmarks(x){
   return x[0].length
    ?x[0]
    :null;
+
  }
+
 
  if(
   Array.isArray(x)&&
@@ -1744,86 +3212,173 @@ function unwrapLandmarks(x){
  ){
 
   return x;
+
  }
 
+
  return null;
+
 }
 
-function stripLm(landmarks){
 
- if(!landmarks)return null;
+function stripLm(
+ landmarks
+){
 
- return landmarks.map(p=>({
+ if(!landmarks){
+  return null;
+ }
 
-  x:Number(p.x.toFixed(5)),
 
-  y:Number(p.y.toFixed(5)),
+ return landmarks.map(
+  p=>({
 
-  z:Number(p.z.toFixed(5)),
+   x:Number(
+    (p.x||0).toFixed(5)
+   ),
 
-  visibility:
-   p.visibility!==undefined
-   ?Number(p.visibility.toFixed(3))
-   :undefined
- }));
+   y:Number(
+    (p.y||0).toFixed(5)
+   ),
+
+   z:Number(
+    (p.z||0).toFixed(5)
+   ),
+
+   visibility:
+    p.visibility!==undefined
+    ?Number(
+      p.visibility.toFixed(3)
+     )
+    :undefined
+
+  })
+ );
+
 }
+
+
+function waitForVideoMetadata(
+ video
+){
+
+ return new Promise(
+  (resolve,reject)=>{
+
+   if(
+    video.readyState>=1&&
+    Number.isFinite(
+     video.duration
+    )
+   ){
+
+    resolve();
+
+    return;
+
+   }
+
+
+   const onLoaded=()=>{
+
+    cleanup();
+
+    resolve();
+
+   };
+
+
+   const onError=()=>{
+
+    cleanup();
+
+    reject(
+     new Error(
+      '動画の読み込みに失敗しました。'
+     )
+    );
+
+   };
+
+
+   const cleanup=()=>{
+
+    video.removeEventListener(
+     'loadedmetadata',
+     onLoaded
+    );
+
+    video.removeEventListener(
+     'error',
+     onError
+    );
+
+   };
+
+
+   video.addEventListener(
+    'loadedmetadata',
+    onLoaded
+   );
+
+   video.addEventListener(
+    'error',
+    onError
+   );
+
+  }
+ );
+
+}
+
 
 window.runPoseEstimationV2=
-async function(slotIndex){
+async function(
+ slotIndex
+){
 
- const state=window.appState;
+ const state=
+  window.appState;
 
- const slot=state.slots[slotIndex];
 
- if(!slot)return;
+ const slot=
+  state.slots[
+   slotIndex
+  ];
 
- const runPoseBtn=
-  document.getElementById(
-   'runPoseBtn'
-  );
 
- const exportPoseBtn=
-  document.getElementById(
-   'exportPoseBtn'
-  );
+ if(!slot){
 
- const poseProgress=
-  document.getElementById(
-   'poseProgress'
-  );
+  return;
 
- const poseProgressText=
-  document.getElementById(
-   'poseProgressText'
-  );
+ }
 
- const poseProgressFill=
-  document.getElementById(
-   'poseProgressFill'
-  );
-
- const poseStage=
-  document.getElementById(
-   'poseStage'
-  );
-
- const poseCanvas=
-  document.getElementById(
-   'poseCanvas'
-  );
 
  runPoseBtn.disabled=true;
 
  exportPoseBtn.disabled=true;
 
- poseProgress.classList.add('visible');
 
- poseStage.classList.add('visible');
+ poseProgress.classList.add(
+  'visible'
+ );
+
+
+ poseStage.classList.add(
+  'visible'
+ );
+
+
+ poseProgressFill.style.width=
+  '0%';
+
 
  poseProgressText.textContent=
   'モデルを読み込み中…';
 
+
  let landmarker;
+
 
  try{
 
@@ -1834,101 +3389,183 @@ async function(slotIndex){
 
   console.error(err);
 
+
   poseProgressText.textContent=
    'モデルの読み込みに失敗しました。';
+
 
   runPoseBtn.disabled=false;
 
   return;
+
  }
 
- const video=document.createElement('video');
 
- const videoUrl=
-  URL.createObjectURL(slot.file);
-
- video.src=videoUrl;
-
- video.muted=true;
- video.playsInline=true;
- video.preload='auto';
-
- await new Promise((resolve,reject)=>{
-
-  video.onloadedmetadata=resolve;
-
-  video.onerror=()=>{
-   reject(
-    new Error('動画の読み込みに失敗しました')
-   );
-  };
- });
-
- const fps=
-  parseFloat(
-   document.getElementById('fpsInput').value
-  )||30;
-
- const startTime=
-  Number.isFinite(slot.clapTime)
-  ?slot.clapTime
-  :0;
-
- const duration=video.duration;
-
- const frameInterval=1/fps;
-
- const totalFrames=
-  Math.max(
-   1,
-   Math.ceil(
-    Math.max(
-     0,
-     duration-startTime
-    )*fps
-   )
+ const video=
+  document.createElement(
+   'video'
   );
 
- poseCanvas.width=video.videoWidth;
- poseCanvas.height=video.videoHeight;
 
- const ctx=
-  poseCanvas.getContext('2d');
+ const videoUrl=
+  URL.createObjectURL(
+   slot.file
+  );
 
- const captured=[];
 
- let frameIdx=0;
+ video.src=
+  videoUrl;
+
+
+ video.muted=true;
+
+ video.playsInline=true;
+
+ video.preload='auto';
+
 
  try{
 
-  while(
-   frameIdx<totalFrames
+  await waitForVideoMetadata(
+   video
+  );
+
+
+  const fps=
+   parseFloat(
+    fpsInput.value
+   )||30;
+
+
+  const startTime=
+   Number.isFinite(
+    slot.clapTime
+   )
+   ?slot.clapTime
+   :0;
+
+
+  const duration=
+   video.duration;
+
+
+  if(
+   !Number.isFinite(
+    duration
+   )||
+   duration<=0
+  ){
+
+   throw new Error(
+    '動画の長さを取得できませんでした。'
+   );
+
+  }
+
+
+  if(
+   startTime>=duration
+  ){
+
+   throw new Error(
+    '手拍子位置が動画の終了位置を超えています。'
+   );
+
+  }
+
+
+  const frameInterval=
+   1/fps;
+
+
+  const availableDuration=
+   Math.max(
+    0,
+    duration-
+    startTime
+   );
+
+
+  const totalFrames=
+   Math.max(
+    1,
+    Math.floor(
+     availableDuration*
+     fps
+    )
+   );
+
+
+  poseCanvas.width=
+   video.videoWidth;
+
+
+  poseCanvas.height=
+   video.videoHeight;
+
+
+  const ctx=
+   poseCanvas.getContext(
+    '2d'
+   );
+
+
+  const captured=[];
+
+
+  let consecutiveNoPose=0;
+
+
+  for(
+   let frameIdx=0;
+   frameIdx<totalFrames;
+   frameIdx++
   ){
 
    const t=
     Math.min(
-     duration-0.001,
+     duration-
+     0.001,
      startTime+
-     frameIdx*frameInterval
+     frameIdx*
+     frameInterval
     );
 
-   if(t<startTime||t>=duration){
+
+   if(
+    t<startTime||
+    t>=duration
+   ){
+
     break;
+
    }
 
-   await seekTo(video,t);
+
+   poseProgressText.textContent=
+    `動画位置 ${t.toFixed(2)}秒 / `+
+    `${duration.toFixed(2)}秒 — `+
+    `シーク中…`;
+
+
+   await seekTo(
+    video,
+    t,
+    8000
+   );
+
 
    /*
-    * 重要:
-    * detectForVideo() の timestamp は
-    * 単純な +1 ではなく、
-    * 動画上の実時間をmsで渡す。
+    * MediaPipe VIDEOモードでは、
+    * 現在の動画フレームに対応した
+    * ミリ秒単位のtimestampを渡す。
     */
+
    const tsMs=
-    Math.max(
-     0,
-     Math.round(t*1000)
+    Math.round(
+     t*1000
     );
+
 
    const result=
     landmarker.detectForVideo(
@@ -1936,25 +3573,44 @@ async function(slotIndex){
      tsMs
     );
 
+
    const pose=
     unwrapLandmarks(
      result.poseLandmarks
     );
+
 
    const poseWorld=
     unwrapLandmarks(
      result.poseWorldLandmarks
     );
 
+
    const leftHand=
     unwrapLandmarks(
      result.leftHandLandmarks
     );
 
+
    const rightHand=
     unwrapLandmarks(
      result.rightHandLandmarks
     );
+
+
+   if(
+    pose&&
+    pose.length>=33
+   ){
+
+    consecutiveNoPose=0;
+
+   }else{
+
+    consecutiveNoPose++;
+
+   }
+
 
    ctx.clearRect(
     0,
@@ -1962,6 +3618,7 @@ async function(slotIndex){
     poseCanvas.width,
     poseCanvas.height
    );
+
 
    ctx.drawImage(
     video,
@@ -1971,9 +3628,11 @@ async function(slotIndex){
     poseCanvas.height
    );
 
+
    if(
     pose&&
-    window.POSE_CONNECTIONS
+    window.POSE_CONNECTIONS&&
+    typeof window.drawConnectors==='function'
    ){
 
     window.drawConnectors(
@@ -1986,19 +3645,29 @@ async function(slotIndex){
      }
     );
 
-    window.drawLandmarks(
-     ctx,
-     pose,
-     {
-      color:'#eef0f4',
-      radius:2
-     }
-    );
+
+    if(
+     typeof window.drawLandmarks==='function'
+    ){
+
+     window.drawLandmarks(
+      ctx,
+      pose,
+      {
+       color:'#eef0f4',
+       radius:2
+      }
+     );
+
+    }
+
    }
+
 
    if(
     leftHand&&
-    window.HAND_CONNECTIONS
+    window.HAND_CONNECTIONS&&
+    typeof window.drawConnectors==='function'
    ){
 
     window.drawConnectors(
@@ -2010,11 +3679,14 @@ async function(slotIndex){
       lineWidth:1.5
      }
     );
+
    }
+
 
    if(
     rightHand&&
-    window.HAND_CONNECTIONS
+    window.HAND_CONNECTIONS&&
+    typeof window.drawConnectors==='function'
    ){
 
     window.drawConnectors(
@@ -2026,7 +3698,9 @@ async function(slotIndex){
       lineWidth:1.5
      }
     );
+
    }
+
 
    captured.push({
 
@@ -2034,78 +3708,203 @@ async function(slotIndex){
 
     t:Number(
      (
-      frameIdx*frameInterval
+      frameIdx*
+      frameInterval
      ).toFixed(4)
     ),
 
-    pose:stripLm(pose),
+    sourceTime:Number(
+     t.toFixed(4)
+    ),
+
+    pose:
+     stripLm(
+      pose
+     ),
 
     poseWorld:
-     stripLm(poseWorld),
+     stripLm(
+      poseWorld
+     ),
 
     leftHand:
-     stripLm(leftHand),
+     stripLm(
+      leftHand
+     ),
 
     rightHand:
-     stripLm(rightHand)
+     stripLm(
+      rightHand
+     )
+
    });
 
-   frameIdx++;
 
    const pct=
     Math.min(
      100,
      Math.round(
-      (frameIdx/totalFrames)*100
+      (
+       (frameIdx+1)/
+       totalFrames
+      )*
+      100
      )
     );
+
 
    poseProgressFill.style.width=
     pct+'%';
 
-   poseProgressText.textContent=
-    `フレーム ${frameIdx}/${totalFrames} 処理中(${pct}%)`;
 
-   await new Promise(r=>setTimeout(r,0));
+   const worldOK=
+    Array.isArray(
+     poseWorld
+    );
+
+
+   poseProgressText.textContent=
+    `フレーム ${frameIdx+1}/${totalFrames} `+
+    `(${pct}%) `+
+    ` / Pose:${pose?'OK':'--'} `+
+    `World:${worldOK?'OK':'--'}`;
+
+
+   await new Promise(
+    r=>
+     setTimeout(
+      r,
+      0
+     )
+   );
+
   }
+
+
+  state.poseData={
+
+   slotIndex,
+
+   sourceFilename:
+    slot.file.name,
+
+   frameRate:fps,
+
+   startTimeSeconds:
+    startTime,
+
+   frames:captured
+
+  };
+
+
+  const poseCount=
+   captured.filter(
+    f=>
+     Array.isArray(
+      f.pose
+     )&&
+     f.pose.length>=33
+   ).length;
+
+
+  const worldCount=
+   captured.filter(
+    f=>
+     Array.isArray(
+      f.poseWorld
+     )&&
+     f.poseWorld.length>=33
+   ).length;
+
+
+  const poseRate=
+   captured.length
+   ?poseCount/
+    captured.length
+   :0;
+
+
+  const worldRate=
+   captured.length
+   ?worldCount/
+    captured.length
+   :0;
+
+
+  poseProgressFill.style.width=
+   '100%';
+
+
+  poseProgressText.textContent=
+   `完了 — ${captured.length}フレーム `+
+   `Pose ${poseCount}/${captured.length} `+
+   `World ${worldCount}/${captured.length}`;
+
+
+  if(
+   poseRate<.8
+  ){
+
+   poseProgressText.textContent+=
+    ' ⚠ Pose検出率が80%未満です。';
+
+  }
+
+
+  if(
+   worldRate<.8
+  ){
+
+   poseProgressText.textContent+=
+    ' ⚠ World座標が不足しています。';
+
+  }
+
+
+  runPoseBtn.disabled=false;
+
+
+  exportPoseBtn.disabled=
+   captured.length===0;
+
+
+  window.dispatchEvent(
+   new CustomEvent(
+    'pose-data-ready'
+   )
+  );
+
+
+ }catch(err){
+
+  console.error(
+   'Pose estimation error:',
+   err
+  );
+
+
+  poseProgressText.textContent=
+   '姿勢推定エラー: '+
+   (
+    err?.message||
+    err
+   );
+
+
+  runPoseBtn.disabled=false;
+
+  exportPoseBtn.disabled=true;
+
 
  }finally{
 
-  URL.revokeObjectURL(videoUrl);
+  URL.revokeObjectURL(
+   videoUrl
+  );
+
  }
 
- state.poseData={
-
-  slotIndex,
-
-  sourceFilename:slot.file.name,
-
-  frameRate:fps,
-
-  startTimeSeconds:startTime,
-
-  frames:captured
- };
-
- const withWorld=
-  captured.filter(
-   f=>Array.isArray(f.poseWorld)
-  ).length;
-
- poseProgressText.textContent=
-  `完了 — ${captured.length}フレームを抽出しました`+
-  `(実寸3D座標: ${withWorld}/${captured.length}フレーム)`;
-
- runPoseBtn.disabled=false;
-
- exportPoseBtn.disabled=
-  captured.length===0;
-
- window.dispatchEvent(
-  new CustomEvent(
-   'pose-data-ready'
-  )
- );
 };
 
 </script>
@@ -2113,23 +3912,32 @@ async function(slotIndex){
 
 <script type="module">
 
-import*as THREE from'three';
+
+import*as THREE
+from'three';
+
 
 import{
  GLTFLoader
-}from'three/addons/loaders/GLTFLoader.js';
+}
+from'three/addons/loaders/GLTFLoader.js';
+
 
 import{
  GLTFExporter
-}from'three/addons/exporters/GLTFExporter.js';
+}
+from'three/addons/exporters/GLTFExporter.js';
+
 
 import*as SkeletonUtils
 from'three/addons/utils/SkeletonUtils.js';
 
+
 import{
  VRMLoaderPlugin,
  VRMUtils
-}from'@pixiv/three-vrm';
+}
+from'@pixiv/three-vrm';
 
 
 const vrmSectionLabel=
@@ -2137,65 +3945,78 @@ const vrmSectionLabel=
   'vrmSectionLabel'
  );
 
+
 const vrmPanel=
  document.getElementById(
   'vrmPanel'
  );
+
 
 const vrmFileInput=
  document.getElementById(
   'vrmFileInput'
  );
 
+
 const poseJsonFileInput=
  document.getElementById(
   'poseJsonFileInput'
  );
+
 
 const retargetBtn=
  document.getElementById(
   'retargetBtn'
  );
 
+
 const vrmProgress=
  document.getElementById(
   'vrmProgress'
  );
+
 
 const vrmProgressText=
  document.getElementById(
   'vrmProgressText'
  );
 
+
 const vrmProgressFill=
  document.getElementById(
   'vrmProgressFill'
  );
+
 
 const vrmPlaybackControls=
  document.getElementById(
   'vrmPlaybackControls'
  );
 
+
 const vrmPlayBtn=
  document.getElementById(
   'vrmPlayBtn'
  );
+
 
 const vrmPauseBtn=
  document.getElementById(
   'vrmPauseBtn'
  );
 
+
 const vrmExportBtn=
  document.getElementById(
   'vrmExportBtn'
  );
 
+
 const vrmViewport=
  document.getElementById(
   'vrmViewport'
  );
+
 
 const vrmHint=
  document.getElementById(
@@ -2204,33 +4025,44 @@ const vrmHint=
 
 
 const local={
+
  vrm:null,
+
  clip:null,
+
  mixer:null,
+
  action:null,
+
  renderer:null,
+
  scene:null,
+
  camera:null,
 
- /*
-  * V3.1
-  *
-  * Hipsの位置を固定するための基準値。
-  */
  hipsBasePosition:null,
 
- contextLost:false
+ contextLost:false,
+
+ currentVRMUrl:null
+
 };
 
 
 window.addEventListener(
  'pose-data-ready',
  ()=>{
-  vrmSectionLabel.style.display='block';
 
-  vrmPanel.style.display='block';
+  vrmSectionLabel.style.display=
+   'block';
+
+
+  vrmPanel.style.display=
+   'block';
+
 
   refreshRetargetReady();
+
  }
 );
 
@@ -2240,53 +4072,87 @@ function refreshRetargetReady(){
  const poseData=
   window.appState.poseData;
 
+
  const hasFrames=
   !!(
    poseData&&
-   poseData.frames&&
+   Array.isArray(
+    poseData.frames
+   )&&
    poseData.frames.length>0
   );
+
 
  const worldCount=
   hasFrames
   ?poseData.frames.filter(
-    f=>Array.isArray(f.poseWorld)
-   ).length
+   f=>
+    Array.isArray(
+     f.poseWorld
+    )&&
+    f.poseWorld.length>=33
+  ).length
   :0;
 
- /*
-  * 少なくとも1フレームだけではなく、
-  * 全体の大部分にworld座標が存在することを要求。
-  */
+
+ const required=
+  hasFrames
+  ?Math.max(
+   1,
+   Math.ceil(
+    poseData.frames.length*
+    .8
+   )
+  )
+  :Infinity;
+
+
  const hasWorld=
   hasFrames&&
-  worldCount>=
-   Math.max(
-    1,
-    Math.floor(
-     poseData.frames.length*.8
-    )
-   );
+  worldCount>=required;
+
 
  retargetBtn.disabled=
-  !(local.vrm&&hasFrames&&hasWorld);
+  !(
+   local.vrm&&
+   hasFrames&&
+   hasWorld
+  );
+
 }
 
 
 function ensureViewport(){
 
- if(local.renderer)return;
+ if(local.renderer){
 
- vrmViewport.classList.add('visible');
+  return;
+
+ }
+
+
+ vrmViewport.classList.add(
+  'visible'
+ );
+
 
  const width=
-  vrmViewport.clientWidth;
+  Math.max(
+   1,
+   vrmViewport.clientWidth
+  );
+
 
  const height=
-  vrmViewport.clientHeight;
+  Math.max(
+   1,
+   vrmViewport.clientHeight
+  );
+
 
  local.scene=
   new THREE.Scene();
+
 
  local.camera=
   new THREE.PerspectiveCamera(
@@ -2296,37 +4162,47 @@ function ensureViewport(){
    20
   );
 
+
  local.camera.position.set(
   0,
   1.3,
   3.2
  );
 
+
  local.renderer=
   new THREE.WebGLRenderer({
+
    antialias:true,
+
    alpha:true
+
   });
+
 
  local.renderer.setSize(
   width,
   height
  );
 
+
  local.renderer.setPixelRatio(
   Math.min(
-   window.devicePixelRatio,
+   window.devicePixelRatio||1,
    2
   )
  );
+
 
  vrmViewport.appendChild(
   local.renderer.domElement
  );
 
+
  local.renderer.domElement.addEventListener(
   'webglcontextlost',
   e=>{
+
    e.preventDefault();
 
    local.contextLost=true;
@@ -2334,12 +4210,18 @@ function ensureViewport(){
    console.warn(
     'WebGL context lost'
    );
+
+   vrmHint.textContent=
+    'WebGLコンテキストが失われました。';
+
   }
  );
+
 
  local.renderer.domElement.addEventListener(
   'webglcontextrestored',
   ()=>{
+
    local.contextLost=false;
 
    const w=
@@ -2348,31 +4230,31 @@ function ensureViewport(){
    const h=
     vrmViewport.clientHeight;
 
+
    if(w&&h){
 
-    local.camera.aspect=w/h;
+    local.camera.aspect=
+     w/h;
 
     local.camera.updateProjectionMatrix();
+
 
     local.renderer.setSize(
      w,
      h
     );
+
    }
+
+
+   vrmHint.textContent=
+    local.vrm
+    ?'表示を復旧しました'
+    :'';
+
   }
  );
 
- const controls=
-  new(
-   THREE
-  ).OrbitControls
-  ?null
-  :null;
-
- /*
-  * OrbitControlsはimport済みではないため、
-  * ここでは従来同様のカメラ固定表示とする。
-  */
 
  const light=
   new THREE.DirectionalLight(
@@ -2380,13 +4262,18 @@ function ensureViewport(){
    1.4
   );
 
+
  light.position.set(
   1,
   1,
   1
  );
 
- local.scene.add(light);
+
+ local.scene.add(
+  light
+ );
+
 
  local.scene.add(
   new THREE.AmbientLight(
@@ -2395,80 +4282,162 @@ function ensureViewport(){
   )
  );
 
+
  const clock=
   new THREE.Clock();
 
+
  function tick(){
 
-  requestAnimationFrame(tick);
+  requestAnimationFrame(
+   tick
+  );
 
-  if(local.contextLost)return;
+
+  if(
+   local.contextLost
+  ){
+
+   return;
+
+  }
+
 
   const delta=
    clock.getDelta();
 
+
   if(local.mixer){
 
-   local.mixer.update(delta);
+   local.mixer.update(
+    delta
+   );
+
 
    local.vrm
     ?.springBoneManager
-    ?.update(delta);
+    ?.update(
+     delta
+    );
+
 
    local.vrm
     ?.lookAt
-    ?.update(delta);
+    ?.update(
+     delta
+    );
+
 
    local.vrm
     ?.expressionManager
-    ?.update(delta);
+    ?.update(
+     delta
+    );
 
-  }else if(local.vrm){
+  }else if(
+   local.vrm
+  ){
 
-   local.vrm.update(delta);
+   local.vrm.update(
+    delta
+   );
+
   }
+
 
   local.renderer.render(
    local.scene,
    local.camera
   );
+
  }
 
+
  tick();
+
 
  const resizeObserver=
   new ResizeObserver(
    entries=>{
 
-    for(const entry of entries){
+    for(
+     const entry of entries
+    ){
 
      const w=
       Math.round(
        entry.contentRect.width
       );
 
+
      const h=
       Math.round(
        entry.contentRect.height
       );
 
-     if(!w||!h)continue;
 
-     local.camera.aspect=w/h;
+     if(!w||!h){
+      continue;
+     }
+
+
+     local.camera.aspect=
+      w/h;
+
 
      local.camera.updateProjectionMatrix();
+
 
      local.renderer.setSize(
       w,
       h
      );
+
     }
+
    }
   );
+
 
  resizeObserver.observe(
   vrmViewport
  );
+
+}
+
+
+function stopCurrentAnimation(){
+
+ if(local.action){
+
+  try{
+   local.action.stop();
+  }catch{}
+
+ }
+
+
+ if(local.mixer){
+
+  try{
+   local.mixer.stopAllAction();
+
+  }catch{}
+
+ }
+
+
+ local.action=null;
+
+ local.mixer=null;
+
+ local.clip=null;
+
+ vrmPlaybackControls.style.display=
+  'none';
+
+ vrmExportBtn.disabled=true;
+
 }
 
 
@@ -2476,230 +4445,308 @@ vrmFileInput.addEventListener(
  'change',
  async e=>{
 
-  const file=e.target.files[0];
+  const file=
+   e.target.files?.[0];
+
 
   if(!file)return;
+
+
+  ensureViewport();
+
+
+  stopCurrentAnimation();
+
 
   vrmHint.textContent=
    `読み込み中: ${file.name}`;
 
-  ensureViewport();
 
   const loader=
    new GLTFLoader();
 
+
   loader.register(
    parser=>
-    new VRMLoaderPlugin(parser)
+    new VRMLoaderPlugin(
+     parser
+    )
   );
+
 
   const url=
-   URL.createObjectURL(file);
+   URL.createObjectURL(
+    file
+   );
 
-  loader.load(
-   url,
 
-   gltf=>{
+  try{
 
-    URL.revokeObjectURL(url);
-
-    const vrm=
-     gltf.userData.vrm;
-
-    if(!vrm){
-
-     vrmHint.textContent=
-      'VRMとして読み込めませんでした';
-
-     return;
-    }
-
-    if(local.vrm){
-
-     local.scene.remove(
-      local.vrm.scene
-     );
-    }
-
-    /*
-     * 前のアニメーションを完全に解除。
-     */
-    local.clip=null;
-
-    if(local.mixer){
-
-     local.mixer.stopAllAction();
-
-     local.mixer=null;
-    }
-
-    local.action=null;
-
-    VRMUtils.removeUnnecessaryVertices(
-     gltf.scene
+   const gltf=
+    await loader.loadAsync(
+     url
     );
 
-    VRMUtils.removeUnnecessaryJoints(
-     gltf.scene
+
+   const vrm=
+    gltf.userData.vrm;
+
+
+   if(!vrm){
+
+    throw new Error(
+     'VRMとして認識できませんでした。'
     );
 
-    if(
-     vrm.meta&&
-     (
-      vrm.meta.metaVersion==='0'||
-      vrm.meta.specVersion===undefined
-     )
-    ){
-
-     VRMUtils.rotateVRM0(vrm);
-    }
-
-    local.vrm=vrm;
-
-    local.scene.add(
-     vrm.scene
-    );
-
-    /*
-     * V3.1
-     * Hipsの初期位置を保存。
-     * 以後の屈伸ではこの位置を基準にする。
-     */
-    const hips=
-     vrm.humanoid
-      ?.getNormalizedBoneNode(
-       'hips'
-      );
-
-    if(hips){
-
-     local.hipsBasePosition=
-      hips.position.clone();
-    }else{
-
-     local.hipsBasePosition=
-      new THREE.Vector3(
-       0,
-       0,
-       0
-      );
-    }
-
-    vrmHint.textContent=
-     `読み込み完了: ${file.name}`;
-
-    refreshRetargetReady();
-   },
-
-   undefined,
-
-   err=>{
-
-    URL.revokeObjectURL(url);
-
-    console.error(err);
-
-    vrmHint.textContent=
-     '読み込みに失敗しました';
    }
-  );
- }
-);
+
+
+   if(local.vrm){
+
+    local.scene.remove(
+     local.vrm.scene
+    );
+
+   }
+
+
+   VRMUtils.removeUnnecessaryVertices(
+    gltf.scene
+   );
+
+
+   VRMUtils.removeUnnecessaryJoints(
+    gltf.scene
+   );
+
+
+   if(
+    vrm.meta&&
+    (
+     vrm.meta.metaVersion==='0'||
+     vrm.meta.specVersion===undefined
+    )
+   ){
+
+    VRMUtils.rotateVRM0(
+     vrm
+    );
+
+   }
+
+
+   local.vrm=
+    vrm;
+
+
+   local.scene.add(
+    vrm.scene
+   );
+
+
+   const hips=
+    vrm.humanoid
+     ?.getNormalizedBoneNode(
+      'hips'
+     );
+
+
+   if(hips){
+
+    local.hipsBasePosition=
+     hips.position.clone();
+
+   }else{
+
+    local.hipsBasePosition=
+     new THREE.Vector3(
+      0,
+      0,
+      0
+     );
+
+   }
+
+
+   local.currentVRMUrl=
+    null;
+
+
+   vrmHint.textContent=
+    `読み込み完了: ${file.name}`;
+
+
+   refreshRetargetReady();
+
+
+  }catch(err){
+
+   console.error(
+    'VRM load error:',
+    err
+   );
+
+
+   vrmHint.textContent=
+    'VRM/glbの読み込みに失敗しました: '+
+    (
+     err?.message||
+     err
+    );
+
+  }finally{
+
+   URL.revokeObjectURL(
+    url
+   );
+
+  }
+
+ });
 
 
 poseJsonFileInput.addEventListener(
  'change',
  async e=>{
 
-  const file=e.target.files[0];
+  const file=
+   e.target.files?.[0];
+
 
   if(!file)return;
 
+
   try{
 
-   const text=await file.text();
+   const text=
+    await file.text();
+
 
    const data=
-    JSON.parse(text);
-
-   const frameCount=
-    data.frames?.length??0;
-
-   if(frameCount===0){
-
-    vrmProgressText.textContent=
-     'このJSONには骨格データがありません。';
-
-    vrmProgress.classList.add(
-     'visible'
+    JSON.parse(
+     text
     );
 
-    window.appState.poseData=null;
 
-    refreshRetargetReady();
+   const frameCount=
+    Array.isArray(
+     data.frames
+    )
+    ?data.frames.length
+    :0;
 
-    return;
+
+   if(
+    frameCount===0
+   ){
+
+    throw new Error(
+     'このJSONには骨格データがありません。'
+    );
+
    }
+
 
    const worldCount=
     data.frames.filter(
-     f=>Array.isArray(f.poseWorld)
+     f=>
+      Array.isArray(
+       f.poseWorld
+      )&&
+      f.poseWorld.length>=33
     ).length;
+
 
    const requiredWorld=
     Math.max(
      1,
-     Math.floor(frameCount*.8)
+     Math.ceil(
+      frameCount*.8
+     )
     );
 
-   if(worldCount<requiredWorld){
 
-    vrmProgressText.textContent=
-     `⚠ 実寸3D座標が不足しています `+
-     `(${worldCount}/${frameCount})。`;
+   if(
+    worldCount<
+    requiredWorld
+   ){
 
-    vrmProgress.classList.add(
-     'visible'
+    throw new Error(
+     `実寸3D座標が不足しています `+
+     `(${worldCount}/${frameCount})。`
     );
 
-    window.appState.poseData=null;
-
-    refreshRetargetReady();
-
-    return;
    }
 
-   window.appState.poseData=data;
+
+   window.appState.poseData=
+    data;
+
 
    vrmProgressText.textContent=
-    `骨格データを読み込みました`+
+    `骨格データを読み込みました `+
     `(${frameCount}フレーム)`;
+
+
+   vrmProgressFill.style.width=
+    '100%';
+
 
    vrmProgress.classList.add(
     'visible'
    );
 
-   vrmSectionLabel.style.display='block';
 
-   vrmPanel.style.display='block';
+   vrmSectionLabel.style.display=
+    'block';
+
+
+   vrmPanel.style.display=
+    'block';
+
 
    refreshRetargetReady();
 
+
   }catch(err){
 
-   console.error(err);
+   console.error(
+    'JSON load error:',
+    err
+   );
+
+
+   window.appState.poseData=
+    null;
+
+
+   vrmProgress.classList.add(
+    'visible'
+   );
+
 
    vrmProgressText.textContent=
-    'JSONの読み込みに失敗しました';
+    'JSON読み込みエラー: '+
+    (
+     err?.message||
+     err
+    );
+
+
+   refreshRetargetReady();
+
   }
- }
-);
+
+ });
 
 
-function toVRMBoneName(name){
+function toVRMBoneName(
+ name
+){
 
  return name.charAt(0).toLowerCase()+
   name.slice(1);
+
 }
 
 
@@ -2707,69 +4754,59 @@ function rigRotation(
  vrm,
  kalidokitName,
  rotation,
- dampener=1,
- lerpFactor=1
+ dampener=1
 ){
 
  const bone=
   vrm.humanoid
    ?.getNormalizedBoneNode(
-    toVRMBoneName(kalidokitName)
+    toVRMBoneName(
+     kalidokitName
+    )
    );
 
- if(!bone||!rotation)return;
+
+ if(
+  !bone||
+  !rotation
+ ){
+
+  return;
+
+ }
+
 
  const euler=
   new THREE.Euler(
-   (rotation.x||0)*dampener,
-   (rotation.y||0)*dampener,
-   (rotation.z||0)*dampener,
+
+   (rotation.x||0)*
+   dampener,
+
+   (rotation.y||0)*
+   dampener,
+
+   (rotation.z||0)*
+   dampener,
+
    'XYZ'
+
   );
+
 
  const quat=
   new THREE.Quaternion()
-   .setFromEuler(euler);
+   .setFromEuler(
+    euler
+   );
 
- /*
-  * ベイク時に前フレームの姿勢が残ると
-  * 足や膝に余計なドリフトが発生するので、
-  * V3.1では基本的に現在フレームを直接適用する。
-  */
- bone.quaternion.copy(quat);
+
+ bone.quaternion.copy(
+  quat
+ );
+
 }
 
 
-/*
- * ============================================================
- * V3.1 最大の修正箇所
- * ============================================================
- *
- * 旧:
- *
- *   hipsRig.position.y + 1
- *
- * として、MediaPipeの絶対Y座標をVRM Hipsへ直接入れていた。
- *
- * これを廃止。
- *
- * Hipsの「回転」はキャプチャするが、
- * Hipsの「上下位置」は固定する。
- *
- * これにより、
- *
- *     屈伸
- *       ↓
- *     Hipsが勝手に上下
- *       ↓
- *     骨格全体が持ち上がる
- *       ↓
- *     足が空中に浮く
- *
- * という問題を止める。
- *
- * X/Zについても絶対座標を直接使わない。
- */
 function rigHips(
  vrm,
  hipsRig
@@ -2781,28 +4818,53 @@ function rigHips(
     'hips'
    );
 
- if(!bone||!hipsRig)return;
+
+ if(
+  !bone||
+  !hipsRig
+ ){
+
+  return;
+
+ }
+
 
  const euler=
   new THREE.Euler(
-   hipsRig.rotation.x||0,
-   hipsRig.rotation.y||0,
-   hipsRig.rotation.z||0,
+
+   hipsRig.rotation?.x||0,
+
+   hipsRig.rotation?.y||0,
+
+   hipsRig.rotation?.z||0,
+
    'XYZ'
+
   );
 
- const quat=
-  new THREE.Quaternion()
-   .setFromEuler(euler);
 
- bone.quaternion.copy(quat);
+ bone.quaternion.copy(
+  new THREE.Quaternion()
+   .setFromEuler(
+    euler
+   )
+ );
+
 
  /*
-  * Hips位置を固定。
+  * V3.2
   *
-  * ここがV3.1の重要ポイント。
+  * Hipsの位置は固定。
+  *
+  * MediaPipe World座標の
+  * 原点は股関節中央なので、
+  * ここから絶対Y座標をVRMへ
+  * 入れることはしない。
   */
- if(local.hipsBasePosition){
+
+ if(
+  local.hipsBasePosition
+ ){
 
   bone.position.copy(
    local.hipsBasePosition
@@ -2815,7 +4877,9 @@ function rigHips(
    0,
    0
   );
+
  }
+
 }
 
 
@@ -2827,58 +4891,81 @@ function rigHandWrist(
 ){
 
  const wristKey=
-  side+'Hand';
+  side+
+  'Hand';
+
 
  const bone=
   vrm.humanoid
    ?.getNormalizedBoneNode(
-    toVRMBoneName(wristKey)
+    toVRMBoneName(
+     wristKey
+    )
    );
+
 
  if(
   !bone||
   !poseRig||
   !poseRig[wristKey]
  ){
+
   return;
+
  }
+
 
  const handRig=
   handLandmarks
   ?Kalidokit.Hand.solve(
-    handLandmarks,
-    side
-   )
+   handLandmarks,
+   side
+  )
   :null;
 
- const wristRotFromHand=
+
+ const wrist=
   handRig
-  ?handRig[side+'Wrist']
+  ?handRig[
+   side+
+   'Wrist'
+  ]
   :null;
+
+
+ if(!wrist){
+
+  return;
+
+ }
+
 
  const euler=
   new THREE.Euler(
-   wristRotFromHand
-    ?wristRotFromHand.x
-    :0,
 
-   wristRotFromHand
-    ?wristRotFromHand.y
-    :0,
+   wrist.x||0,
 
-   poseRig[wristKey].z||0,
+   wrist.y||0,
+
+   wrist.z||0,
 
    'XYZ'
+
   );
+
 
  bone.quaternion.copy(
   new THREE.Quaternion()
-   .setFromEuler(euler)
+   .setFromEuler(
+    euler
+   )
  );
+
 }
 
 
 const FINGER_BONES=[
+
  'ThumbProximal',
  'ThumbIntermediate',
  'ThumbDistal',
@@ -2898,6 +4985,7 @@ const FINGER_BONES=[
  'LittleProximal',
  'LittleIntermediate',
  'LittleDistal'
+
 ];
 
 
@@ -2907,7 +4995,10 @@ function rigHandFingers(
  side
 ){
 
- if(!handLandmarks)return;
+ if(!handLandmarks){
+  return;
+ }
+
 
  const rig=
   Kalidokit.Hand.solve(
@@ -2915,33 +5006,60 @@ function rigHandFingers(
    side
   );
 
- if(!rig)return;
 
- FINGER_BONES.forEach(b=>{
+ if(!rig){
+  return;
+ }
 
-  rigRotation(
-   vrm,
-   side+b,
-   rig[side+b],
-   1,
-   1
-  );
- });
+
+ FINGER_BONES.forEach(
+  boneName=>{
+
+   const rotation=
+    rig[
+     side+
+     boneName
+    ];
+
+
+   if(!rotation){
+    return;
+   }
+
+
+   rigRotation(
+    vrm,
+    side+
+    boneName,
+    rotation,
+    1
+   );
+
+  }
+ );
+
 }
 
 
 const LM={
+
  leftHip:23,
  rightHip:24,
+
  leftKnee:25,
  rightKnee:26,
+
  leftAnkle:27,
  rightAnkle:28,
+
  leftFootIndex:31,
  rightFootIndex:32
+
 };
 
-const VISIBILITY_THRESHOLD=.5;
+
+const VISIBILITY_THRESHOLD=
+ .5;
 
 
 function avgVisibility(
@@ -2949,17 +5067,31 @@ function avgVisibility(
  indices
 ){
 
- if(!landmarks)return 0;
+ if(!landmarks){
+  return 0;
+ }
+
 
  const vals=
   indices.map(
-   i=>landmarks[i]?.visibility??0
+   i=>
+    landmarks[i]
+    ?.visibility??0
   );
 
+
+ if(!vals.length){
+  return 0;
+ }
+
+
  return vals.reduce(
-  (a,b)=>a+b,
+  (a,b)=>
+   a+b,
   0
- )/vals.length;
+ )/
+ vals.length;
+
 }
 
 
@@ -2970,85 +5102,117 @@ function applyFrameToVRM(
 
  if(
   !frame||
-  !frame.pose
+  !Array.isArray(
+   frame.pose
+  )||
+  frame.pose.length<33
  ){
-  return;
+
+  return false;
+
  }
+
 
  const poseLm=
   frame.pose;
 
- const world3d=
-  frame.poseWorld||
-  poseLm;
 
- const poseRig=
-  Kalidokit.Pose.solve(
-   world3d,
-   poseLm,
-   {
-    runtime:'mediapipe',
-    enableLegs:true
-   }
+ const world3d=
+  Array.isArray(
+   frame.poseWorld
+  )&&
+  frame.poseWorld.length>=33
+  ?frame.poseWorld
+  :poseLm;
+
+
+ let poseRig;
+
+
+ try{
+
+  poseRig=
+   Kalidokit.Pose.solve(
+    world3d,
+    poseLm,
+    {
+     runtime:'mediapipe',
+     enableLegs:true
+    }
+   );
+
+ }catch(err){
+
+  console.warn(
+   'Kalidokit Pose.solve failed:',
+   err
   );
 
- if(!poseRig)return;
+  return false;
 
- /*
-  * Hips回転のみ。
-  * Hips位置はrigHips()内で固定。
-  */
- rigHips(
-  vrm,
+ }
+
+
+ if(!poseRig){
+
+  return false;
+
+ }
+
+
+ if(
   poseRig.Hips
- );
+ ){
+
+  rigHips(
+   vrm,
+   poseRig.Hips
+  );
+
+ }
+
 
  rigRotation(
   vrm,
   'Chest',
   poseRig.Spine,
-  .25,
-  1
+  .25
  );
+
 
  rigRotation(
   vrm,
   'Spine',
   poseRig.Spine,
-  .45,
-  1
+  .45
  );
+
 
  rigRotation(
   vrm,
   'LeftUpperArm',
-  poseRig.LeftUpperArm,
-  1,
-  1
+  poseRig.LeftUpperArm
  );
+
 
  rigRotation(
   vrm,
   'LeftLowerArm',
-  poseRig.LeftLowerArm,
-  1,
-  1
+  poseRig.LeftLowerArm
  );
+
 
  rigRotation(
   vrm,
   'RightUpperArm',
-  poseRig.RightUpperArm,
-  1,
-  1
+  poseRig.RightUpperArm
  );
+
 
  rigRotation(
   vrm,
   'RightLowerArm',
-  poseRig.RightLowerArm,
-  1,
-  1
+  poseRig.RightLowerArm
  );
 
 
@@ -3062,6 +5226,7 @@ function applyFrameToVRM(
    ]
   );
 
+
  const rightLegVis=
   avgVisibility(
    poseLm,
@@ -3073,67 +5238,59 @@ function applyFrameToVRM(
   );
 
 
- if(leftLegVis>
-    VISIBILITY_THRESHOLD){
+ if(
+  leftLegVis>
+  VISIBILITY_THRESHOLD
+ ){
 
   rigRotation(
    vrm,
    'LeftUpperLeg',
-   poseRig.LeftUpperLeg,
-   1,
-   1
+   poseRig.LeftUpperLeg
   );
+
 
   rigRotation(
    vrm,
    'LeftLowerLeg',
-   poseRig.LeftLowerLeg,
-   1,
-   1
+   poseRig.LeftLowerLeg
   );
 
-  if(poseRig.LeftFoot){
 
-   rigRotation(
-    vrm,
-    'LeftFoot',
-    poseRig.LeftFoot,
-    1,
-    1
-   );
-  }
+  rigRotation(
+   vrm,
+   'LeftFoot',
+   poseRig.LeftFoot
+  );
+
  }
 
 
- if(rightLegVis>
-    VISIBILITY_THRESHOLD){
+ if(
+  rightLegVis>
+  VISIBILITY_THRESHOLD
+ ){
 
   rigRotation(
    vrm,
    'RightUpperLeg',
-   poseRig.RightUpperLeg,
-   1,
-   1
+   poseRig.RightUpperLeg
   );
+
 
   rigRotation(
    vrm,
    'RightLowerLeg',
-   poseRig.RightLowerLeg,
-   1,
-   1
+   poseRig.RightLowerLeg
   );
 
-  if(poseRig.RightFoot){
 
-   rigRotation(
-    vrm,
-    'RightFoot',
-    poseRig.RightFoot,
-    1,
-    1
-   );
-  }
+  rigRotation(
+   vrm,
+   'RightFoot',
+   poseRig.RightFoot
+  );
+
  }
 
 
@@ -3144,6 +5301,7 @@ function applyFrameToVRM(
   frame.leftHand
  );
 
+
  rigHandWrist(
   vrm,
   'Right',
@@ -3151,92 +5309,104 @@ function applyFrameToVRM(
   frame.rightHand
  );
 
+
  rigHandFingers(
   vrm,
   frame.leftHand,
   'Left'
  );
 
+
  rigHandFingers(
   vrm,
   frame.rightHand,
   'Right'
  );
+
+
+ return true;
+
 }
 
 
 async function retarget(){
 
- const vrm=local.vrm;
+ const vrm=
+  local.vrm;
+
 
  const poseData=
   window.appState.poseData;
 
+
  if(
   !vrm||
   !poseData||
-  !poseData.frames||
+  !Array.isArray(
+   poseData.frames
+  )||
   !poseData.frames.length
  ){
 
   vrmProgressText.textContent=
    '骨格データが読み込まれていません。';
 
+
   vrmProgress.classList.add(
    'visible'
   );
 
+
   return;
+
  }
+
 
  retargetBtn.disabled=true;
 
  vrmExportBtn.disabled=true;
 
+
  vrmProgress.classList.add(
   'visible'
  );
 
- vrmProgressFill.style.width='0%';
+
+ vrmProgressFill.style.width=
+  '0%';
 
 
- /*
-  * 前回のアニメーションを完全に解除。
-  */
- if(local.mixer){
-
-  local.mixer.stopAllAction();
-
-  local.mixer=null;
- }
-
- local.action=null;
- local.clip=null;
+ stopCurrentAnimation();
 
 
- /*
-  * Hipsの基準位置を再取得。
-  */
  const hips=
   vrm.humanoid
    ?.getNormalizedBoneNode(
     'hips'
    );
 
+
  if(hips){
 
   local.hipsBasePosition=
    hips.position.clone();
+
  }
 
 
  const trackedBoneNames=
   new Set();
 
+
  const perFrameSamples=[];
+
 
  const frames=
   poseData.frames;
+
+
+ let successfulFrames=0;
+
 
  for(
   let i=0;
@@ -3244,24 +5414,39 @@ async function retarget(){
   i++
  ){
 
-  /*
-   * 毎フレーム、前フレームの状態に
-   * 引きずられないよう適用。
-   */
-  applyFrameToVRM(
-   vrm,
-   frames[i]
-  );
+  const success=
+   applyFrameToVRM(
+    vrm,
+    frames[i]
+   );
+
+
+  if(success){
+
+   successfulFrames++;
+
+  }
+
 
   /*
-   * normalized → raw
+   * normalized bone
+   * →
+   * raw bone
    */
+
   vrm.humanoid.update();
 
 
   const sample={
-   time:Number(frames[i].t)||0,
-   bones:new Map()
+
+   time:
+    Number(
+     frames[i].t
+    )||0,
+
+   bones:
+    new Map()
+
   };
 
 
@@ -3280,55 +5465,85 @@ async function retarget(){
         boneName
        );
 
-     if(!node)return;
+
+     if(!node){
+      return;
+     }
+
 
      trackedBoneNames.add(
       boneName
      );
 
+
      sample.bones.set(
       boneName,
       {
-       quat:
-        node.quaternion.clone(),
 
-       /*
-        * V3.1
-        *
-        * Hipsの位置は固定するので、
-        * position track自体を作らない。
-        */
-       pos:null
+       quat:
+        node.quaternion.clone()
+
       }
      );
+
     }
    );
+
   }
+
 
   perFrameSamples.push(
    sample
   );
 
 
-  if(i%15===0){
+  if(
+   i%10===0||
+   i===frames.length-1
+  ){
 
    const pct=
     Math.round(
-     (i/frames.length)*100
+     (
+      (i+1)/
+      frames.length
+     )*
+     100
     );
+
 
    vrmProgressText.textContent=
     `リターゲティング中 `+
-    `${i}/${frames.length}`+
-    `(${pct}%)`;
+    `${i+1}/${frames.length}`+
+    ` (${pct}%)`+
+    ` / 有効姿勢:${successfulFrames}`;
+
 
    vrmProgressFill.style.width=
     pct+'%';
 
+
    await new Promise(
-    r=>setTimeout(r,0)
+    r=>
+     setTimeout(
+      r,
+      0
+     )
    );
+
   }
+
+ }
+
+
+ if(
+  successfulFrames===0
+ ){
+
+  throw new Error(
+   '有効な姿勢を1フレームも作成できませんでした。'
+  );
+
  }
 
 
@@ -3344,9 +5559,14 @@ async function retarget(){
       boneName
      );
 
-   if(!node)return;
+
+   if(!node){
+    return;
+   }
+
 
    const times=[];
+
    const quatValues=[];
 
 
@@ -3358,23 +5578,33 @@ async function retarget(){
        boneName
       );
 
-     if(!b)return;
+
+     if(!b){
+      return;
+     }
+
 
      times.push(
       sample.time
      );
 
+
      quatValues.push(
+
       b.quat.x,
       b.quat.y,
       b.quat.z,
       b.quat.w
+
      );
+
     }
    );
 
 
-   if(times.length){
+   if(
+    times.length>=2
+   ){
 
     tracks.push(
      new THREE.QuaternionKeyframeTrack(
@@ -3383,24 +5613,9 @@ async function retarget(){
       quatValues
      )
     );
+
    }
 
-
-   /*
-    * 重要:
-    *
-    * 以前はここで
-    *
-    * if(boneName==='hips')
-    *     VectorKeyframeTrack(position)
-    *
-    * を作っていた。
-    *
-    * V3.1では完全に廃止。
-    *
-    * したがってGLBのアニメーションによって
-    * Hipsが上下へ移動することはない。
-    */
   }
  );
 
@@ -3408,21 +5623,38 @@ async function retarget(){
  const lastTime=
   frames.length
   ?Number(
-    frames[frames.length-1].t
-   )||0
+   frames[
+    frames.length-1
+   ].t
+  )||0
   :0;
 
+
  const fps=
-  poseData.frameRate||30;
+  Number(
+   poseData.frameRate
+  )||30;
+
 
  const frameDuration=
   1/fps;
 
+
  const duration=
   Math.max(
    frameDuration,
-   lastTime+frameDuration
+   lastTime+
+   frameDuration
   );
+
+
+ if(!tracks.length){
+
+  throw new Error(
+   'AnimationTrackを作成できませんでした。'
+  );
+
+ }
 
 
  const clip=
@@ -3430,64 +5662,131 @@ async function retarget(){
    'hanagasa-odori',
    duration,
    tracks
-  );
+ );
 
 
- local.clip=clip;
+ local.clip=
+  clip;
+
 
  local.mixer=
   new THREE.AnimationMixer(
    vrm.scene
   );
 
+
  local.action=
   local.mixer.clipAction(
    clip
   );
 
- /*
-  * 明示的にループ再生。
-  */
+
  local.action.reset();
+
 
  local.action.setLoop(
   THREE.LoopRepeat,
   Infinity
  );
 
- local.action.clampWhenFinished=false;
+
+ local.action.clampWhenFinished=
+  false;
+
+
+ local.action.enabled=
+  true;
+
+
+ local.action.paused=
+  false;
+
 
  local.action.play();
 
 
+ /*
+  * Mixerの先頭状態を確実に適用。
+  */
+
+ local.mixer.update(
+  0
+ );
+
+
  vrmProgressText.textContent=
-  `完了 — ${frames.length}フレームをベイクしました`+
-  `(${duration.toFixed(1)}秒)`+
-  ` / Hips位置固定`;
+  `完了 — `+
+  `${frames.length}フレームをベイク `+
+  `(有効姿勢 ${successfulFrames}) / `+
+  `${duration.toFixed(2)}秒 / `+
+  `Hips位置固定`;
 
- vrmProgressFill.style.width='100%';
 
- vrmPlaybackControls.style.display='flex';
+ vrmProgressFill.style.width=
+  '100%';
+
+
+ vrmPlaybackControls.style.display=
+  'flex';
+
 
  vrmExportBtn.disabled=false;
 
+
  retargetBtn.disabled=false;
+
 }
 
 
 retargetBtn.addEventListener(
  'click',
- retarget
-);
+ async()=>{
+
+  try{
+
+   await retarget();
+
+  }catch(err){
+
+   console.error(
+    'Retarget error:',
+    err
+   );
+
+
+   vrmProgressText.textContent=
+    'リターゲティングエラー: '+
+    (
+     err?.message||
+     err
+    );
+
+
+   retargetBtn.disabled=false;
+
+  }
+
+ });
 
 
 vrmPlayBtn.addEventListener(
  'click',
  ()=>{
 
-  if(!local.action)return;
+  if(
+   !local.action||
+   !local.mixer
+  ){
+
+   return;
+
+  }
+
+
+  local.action.enabled=true;
 
   local.action.paused=false;
+
 
   if(
    !local.action.isRunning()
@@ -3496,9 +5795,10 @@ vrmPlayBtn.addEventListener(
    local.action.reset();
 
    local.action.play();
+
   }
- }
-);
+
+ });
 
 
 vrmPauseBtn.addEventListener(
@@ -3508,16 +5808,21 @@ vrmPauseBtn.addEventListener(
   if(local.action){
 
    local.action.paused=true;
+
   }
+
  });
 
 
-function buildExportableScene(vrm){
+function buildExportableScene(
+ vrm
+){
 
  const clone=
   SkeletonUtils.clone(
    vrm.scene
   );
+
 
  clone.traverse(
   obj=>{
@@ -3528,14 +5833,19 @@ function buildExportableScene(vrm){
    ){
 
     return;
+
    }
 
+
    const materials=
-    Array.isArray(obj.material)
+    Array.isArray(
+     obj.material
+    )
     ?obj.material
     :[
-      obj.material
-     ];
+     obj.material
+    ];
+
 
    const replaced=
     materials.map(
@@ -3547,40 +5857,57 @@ function buildExportableScene(vrm){
       ){
 
        return mat;
+
       }
+
 
       return new THREE.MeshStandardMaterial({
 
-       map:mat.map||null,
+       map:
+        mat.map||
+        null,
 
        color:
         mat.color
         ?mat.color.clone()
         :new THREE.Color(
-         1,1,1
+         1,
+         1,
+         1
         ),
 
        transparent:
         !!mat.transparent,
 
        alphaTest:
-        mat.alphaTest||0,
+        mat.alphaTest||
+        0,
 
-       side:mat.side,
+       side:
+        mat.side,
 
-       name:mat.name
+       name:
+        mat.name
+
       });
+
      }
     );
 
+
    obj.material=
-    Array.isArray(obj.material)
+    Array.isArray(
+     obj.material
+    )
     ?replaced
     :replaced[0];
+
   }
  );
 
+
  return clone;
+
 }
 
 
@@ -3594,74 +5921,130 @@ vrmExportBtn.addEventListener(
   ){
 
    return;
+
   }
 
-  const exportScene=
-   buildExportableScene(
-    local.vrm
-   );
 
-  const exporter=
-   new GLTFExporter();
+  try{
 
-  /*
-   * GLTFExporterがAnimationClipの
-   * raw bone trackをexportSceneの
-   * cloneへ正しく対応させるため、
-   * clipは元VRMのnode.nameを使用している。
-   */
+   const exportScene=
+    buildExportableScene(
+     local.vrm
+    );
 
-  exporter.parse(
 
-   exportScene,
+   const exporter=
+    new GLTFExporter();
 
-   result=>{
 
-    const blob=
-     new Blob(
-      [result],
-      {
-       type:
-        'application/octet-stream'
-      }
+   vrmHint.textContent=
+    'GLBを書き出し中…';
+
+
+   exporter.parse(
+
+    exportScene,
+
+    result=>{
+
+     const blob=
+      new Blob(
+       [result],
+       {
+        type:
+         'application/octet-stream'
+       }
+      );
+
+
+     const url=
+      URL.createObjectURL(
+       blob
+      );
+
+
+     const a=
+      document.createElement(
+       'a'
+      );
+
+
+     a.href=url;
+
+
+     a.download=
+      'hanagasa-odori-animated-V3.2.glb';
+
+
+     a.click();
+
+
+     setTimeout(
+      ()=>{
+       URL.revokeObjectURL(
+        url
+       );
+      },
+      1500
      );
 
-    const a=
-     document.createElement('a');
 
-    const url=
-     URL.createObjectURL(blob);
+     vrmHint.textContent=
+      'GLB書き出し完了';
 
-    a.href=url;
+    },
 
-    a.download=
-     'hanagasa-odori-animated-V3.1.glb';
 
-    a.click();
+    error=>{
 
-    setTimeout(
-     ()=>URL.revokeObjectURL(url),
-     1000
-    );
-   },
+     console.error(
+      'GLB export error:',
+      error
+     );
 
-   err=>{
-    console.error(
-     'GLB export error:',
+
+     vrmHint.textContent=
+      'GLB書き出しに失敗しました: '+
+      (
+       error?.message||
+       error
+      );
+
+    },
+
+
+    {
+     binary:true,
+
+     animations:[
+      local.clip
+     ]
+
+    }
+
+   );
+
+  }catch(err){
+
+   console.error(
+    'GLB export exception:',
+    err
+   );
+
+
+   vrmHint.textContent=
+    'GLB書き出しエラー: '+
+    (
+     err?.message||
      err
     );
-   },
 
-   {
-    binary:true,
-    animations:[
-     local.clip
-    ]
-   }
-  );
+  }
+
  });
 
 </script>
+
 
 </body>
 </html>
