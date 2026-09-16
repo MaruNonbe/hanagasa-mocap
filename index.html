@@ -447,7 +447,14 @@ async function handleFile(i, file){
     setStatus(i, '読み込み完了', 'ready');
   } catch (err) {
     console.error(err);
-    setStatus(i, '音声を検出できません', '');
+    // 音声トラックが無い/デコードできない動画(単眼撮影ではよくあるケース)。
+    // これは「同期不能」という意味であって「使えない」わけではないので、
+    // クラップ位置を動画の先頭(0秒)にフォールバックして機能を止めない。
+    // これにより analyzeBtn の有効化条件も満たし、± ボタンでの手動補正も
+    // 引き続き機能する。
+    state.slots[i].clapTime = 0;
+    updateClapReadout(i);
+    setStatus(i, '音声なし(先頭を基準に使用)', '');
   }
 
   refreshControls();
