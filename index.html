@@ -227,21 +227,28 @@
 </style>
 </head>
 <body>
-<div id="fatalErrorBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:9999; background:#8b1e1e; color:#fff; padding:10px 16px; font:12px/1.5 monospace; white-space:pre-wrap; max-height:40vh; overflow:auto;"></div>
+<div id="fatalErrorBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:9999; background:#8b1e1e; color:#fff; padding:10px 16px; font:12px/1.5 monospace; white-space:pre-wrap; max-height:40vh; overflow:auto;">
+  <button id="fatalErrorClose" style="float:right; background:transparent; border:1px solid rgba(255,255,255,0.4); color:#fff; border-radius:4px; padding:2px 8px; cursor:pointer; font-family:'Zen Kaku Gothic New',sans-serif; font-size:12px;">✕ 閉じる</button>
+  <div id="fatalErrorText"></div>
+</div>
 <script>
   // Surface otherwise-silent script errors (e.g. a bad import in a module
   // script, which aborts that whole script with no visible sign in the UI)
   // as a visible banner instead of a page that quietly does nothing.
   function showFatalError(msg){
     const el = document.getElementById('fatalErrorBanner');
+    const textEl = document.getElementById('fatalErrorText');
     el.style.display = 'block';
-    el.textContent = '⚠ スクリプトエラー: ' + msg + '\n(この内容をそのまま開発者に伝えてください)';
+    textEl.textContent = '⚠ スクリプトエラー: ' + msg + '\n(この内容をそのまま開発者に伝えてください)';
   }
   window.addEventListener('error', (e) => {
     showFatalError((e.message || 'unknown error') + (e.filename ? ` (${e.filename}:${e.lineno})` : ''));
   });
   window.addEventListener('unhandledrejection', (e) => {
     showFatalError('Promise rejection: ' + (e.reason?.message || e.reason));
+  });
+  document.getElementById('fatalErrorClose').addEventListener('click', () => {
+    document.getElementById('fatalErrorBanner').style.display = 'none';
   });
 </script>
 <div class="app">
@@ -558,7 +565,7 @@ function formatTime(sec){
 function activeSlots(){
   return state.slots
     .map((s, i) => ({ ...s, index: i, meta: SLOT_META[i] }))
-    .filter(s => s.file);
+    .filter(s => s.file && s.clapTime !== null); // clapTime未確定(音声解析失敗)のスロットは除外
 }
 
 function renderOffsetsTable(){
@@ -588,12 +595,22 @@ function refreshControls(){
 }
 
 analyzeBtn.addEventListener('click', () => {
+  const all = state.slots.filter(s => s && s.file);
   const active = activeSlots();
   if (active.length === 0) return;
+
   renderOffsetsTable();
   buildPreviewStage(active);
   exportBtn.disabled = false;
-  statusLine.innerHTML = `<strong>${active.length}本の動画を同期しました。</strong>`;
+
+  // 手拍子が検出できず除外されたカメラがある場合は、統計に含まれていないことをはっきり伝える
+  if (active.length < all.length) {
+    statusLine.innerHTML = `<strong>${active.length}本の動画を同期しました。</strong>` +
+      `<span style="color:var(--accent)"> ⚠ ${all.length - active.length}本は手拍子を検出できず除外されました</span>`;
+  } else {
+    statusLine.innerHTML = `<strong>${active.length}本の動画を同期しました。</strong>`;
+  }
+
   revealPoseSection(active);
 });
 
@@ -606,8 +623,11 @@ exportBtn.addEventListener('click', () => {
       slot: s.index,
       angle: s.meta.label,
       filename: s.file.name,
-      clapTimeSeconds: Number(s.clapTime.toFixed(4)),
-      offsetFromReferenceSeconds: Number((s.clapTime - ref.clapTime).toFixed(4)),
+      // activeSlots()側でclapTime !== nullは保証済みだが、念のため二重にガードしておく
+      clapTimeSeconds: s.clapTime !== null ? Number(s.clapTime.toFixed(4)) : null,
+      offsetFromReferenceSeconds: (s.clapTime !== null && ref.clapTime !== null)
+        ? Number((s.clapTime - ref.clapTime).toFixed(4))
+        : null,
     })),
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
