@@ -3,13 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>動画同期ツール — モーションキャプチャ前処理</title>
+<title>動画同期ツール — モーションキャプチャ前処理 V3.1</title>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/kalidokit@1.1.4/dist/kalidokit.umd.js"></script>
+
 <script type="importmap">
 {
   "imports": {
@@ -20,1478 +23,3645 @@
   }
 }
 </script>
+
 <style>
-  :root{
-    --bg: #12151d;
-    --bg-panel: #1a1f2b;
-    --bg-panel-raised: #202634;
-    --border: #2a3142;
-    --border-soft: #232a38;
-    --text: #edeff4;
-    --text-dim: #8b93a7;
-    --text-faint: #5a6377;
-    --accent: #e8604c;
-    --accent-soft: rgba(232, 96, 76, 0.14);
-    --accent-line: rgba(232, 96, 76, 0.4);
-    --indigo: #3d5a99;
-    --success: #6fcf97;
-    --success-soft: rgba(111, 207, 151, 0.12);
-    --mono: 'SF Mono', 'Consolas', 'Menlo', monospace;
-  }
-  *{ box-sizing: border-box; }
-  html, body{
-    margin:0; padding:0; background: var(--bg); color: var(--text);
-    font-family: 'Zen Kaku Gothic New', -apple-system, sans-serif;
-    -webkit-font-smoothing: antialiased;
-  }
-  body{ min-height:100vh; }
+:root{
+  --bg:#12151d;
+  --bg-panel:#1a1f2b;
+  --bg-panel-raised:#202634;
+  --border:#2a3142;
+  --border-soft:#232a38;
+  --text:#edeff4;
+  --text-dim:#8b93a7;
+  --text-faint:#5a6377;
+  --accent:#e8604c;
+  --accent-soft:rgba(232,96,76,.14);
+  --accent-line:rgba(232,96,76,.4);
+  --indigo:#3d5a99;
+  --success:#6fcf97;
+  --success-soft:rgba(111,207,151,.12);
+  --mono:'SF Mono','Consolas','Menlo',monospace;
+}
 
-  .app{ max-width: 1180px; margin: 0 auto; padding: 40px 24px 100px; }
+*{box-sizing:border-box}
 
-  header.top{
-    display:flex; justify-content:space-between; align-items:flex-end;
-    border-bottom: 1px solid var(--border); padding-bottom: 22px; margin-bottom: 34px;
-    gap: 20px; flex-wrap: wrap;
-  }
-  .brand-mark{
-    display:flex; align-items:center; gap:12px;
-  }
-  .brand-mark .dot{
-    width:10px; height:10px; border-radius:2px; background: var(--accent);
-    transform: rotate(45deg); flex-shrink:0;
-  }
-  h1{
-    font-family: 'Shippori Mincho', serif; font-weight:700;
-    font-size: 26px; letter-spacing: 0.02em; margin:0;
-  }
-  .subtitle{ color: var(--text-dim); font-size: 13.5px; margin-top: 4px; }
-  .fps-control{
-    display:flex; align-items:center; gap:10px; font-size:13px; color: var(--text-dim);
-  }
-  .fps-control input{
-    width:60px; background: var(--bg-panel); border:1px solid var(--border);
-    color: var(--text); border-radius:6px; padding:6px 8px; font-family: var(--mono); font-size:13px;
-  }
+html,body{
+  margin:0;
+  padding:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Zen Kaku Gothic New',-apple-system,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
 
-  .section-label{
-    font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase;
-    color: var(--text-faint); margin: 0 0 14px 2px; font-weight:600;
-  }
+body{min-height:100vh}
 
-  .slots{
-    display:grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 36px;
-  }
-  @media (max-width: 900px){ .slots{ grid-template-columns: 1fr; } }
+.app{
+  max-width:1180px;
+  margin:0 auto;
+  padding:40px 24px 100px
+}
 
-  .slot{
-    background: var(--bg-panel); border:1px solid var(--border); border-radius: 10px;
-    overflow:hidden; display:flex; flex-direction:column; min-height: 340px;
-  }
-  .slot-head{
-    display:flex; justify-content:space-between; align-items:center;
-    padding: 12px 14px; border-bottom: 1px solid var(--border-soft);
-  }
-  .slot-head .angle-label{ font-size:13px; font-weight:600; }
-  .slot-head .angle-sub{ font-size:11px; color: var(--text-faint); margin-top:1px; }
-  .slot-status{
-    font-size:10.5px; padding:3px 8px; border-radius:20px; border:1px solid var(--border);
-    color: var(--text-faint); letter-spacing:0.03em;
-  }
-  .slot-status.ready{ color: var(--success); border-color: rgba(111,207,151,0.3); background: var(--success-soft); }
-  .slot-status.analyzing{ color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
+header.top{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  border-bottom:1px solid var(--border);
+  padding-bottom:22px;
+  margin-bottom:34px;
+  gap:20px;
+  flex-wrap:wrap
+}
 
-  .drop{
-    flex:1; display:flex; align-items:center; justify-content:center; flex-direction:column;
-    gap:10px; padding: 24px; cursor:pointer; color: var(--text-faint);
-    border: 1px dashed var(--border); margin:12px; border-radius:8px; transition: border-color .15s, color .15s;
-  }
-  .drop:hover{ border-color: var(--accent-line); color: var(--text-dim); }
-  .drop svg{ opacity:0.5; }
-  .drop .hint{ font-size:12px; text-align:center; line-height:1.5; }
-  .drop .hint b{ color: var(--text-dim); font-weight:600; }
+.brand-mark{
+  display:flex;
+  align-items:center;
+  gap:12px
+}
 
-  .slot-body{ display:none; flex-direction:column; flex:1; }
-  .slot.filled .drop{ display:none; }
-  .slot.filled .slot-body{ display:flex; }
+.brand-mark .dot{
+  width:10px;
+  height:10px;
+  border-radius:2px;
+  background:var(--accent);
+  transform:rotate(45deg);
+  flex-shrink:0
+}
 
-  video.preview{
-    width:100%; aspect-ratio: 16/9; background:#000; display:block; object-fit:cover;
-  }
-  .filename{
-    font-size:11.5px; color: var(--text-dim); padding: 8px 14px 0;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family: var(--mono);
-  }
+h1{
+  font-family:'Shippori Mincho',serif;
+  font-weight:700;
+  font-size:26px;
+  letter-spacing:.02em;
+  margin:0
+}
 
-  .waveform-wrap{ padding: 8px 14px 4px; position:relative; }
-  canvas.waveform{ width:100%; height:64px; display:block; border-radius:4px; }
-  .clap-readout{
-    display:flex; justify-content:space-between; align-items:center;
-    padding: 6px 14px 12px; font-size:12px; color: var(--text-dim);
-  }
-  .clap-readout .time{ font-family: var(--mono); color: var(--text); }
-  .nudge{ display:flex; gap:4px; align-items:center; }
-  .nudge button{
-    width:22px; height:22px; border-radius:5px; border:1px solid var(--border);
-    background: var(--bg-panel-raised); color: var(--text-dim); cursor:pointer; font-size:13px;
-    display:flex; align-items:center; justify-content:center; line-height:1;
-  }
-  .nudge button:hover{ border-color: var(--accent-line); color: var(--accent); }
+.subtitle{
+  color:var(--text-dim);
+  font-size:13.5px;
+  margin-top:4px
+}
 
-  .controls-row{
-    display:flex; gap:14px; align-items:center; margin-bottom: 30px; flex-wrap:wrap;
-  }
-  button.primary{
-    background: var(--accent); color:#181008; border:none; font-weight:700;
-    padding: 12px 22px; border-radius: 8px; font-size:14px; cursor:pointer;
-    letter-spacing:0.01em; transition: filter .15s, transform .1s;
-    font-family:'Zen Kaku Gothic New',sans-serif;
-  }
-  button.primary:hover{ filter: brightness(1.08); }
-  button.primary:active{ transform: scale(0.98); }
-  button.primary:disabled{ background: var(--border); color: var(--text-faint); cursor:not-allowed; }
+.fps-control{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:13px;
+  color:var(--text-dim)
+}
 
-  button.secondary{
-    background: transparent; color: var(--text-dim); border:1px solid var(--border);
-    padding: 11px 18px; border-radius:8px; font-size:13.5px; cursor:pointer;
-    font-family:'Zen Kaku Gothic New',sans-serif;
-  }
-  button.secondary:hover{ border-color: var(--accent-line); color: var(--text); }
-  button.secondary:disabled{ opacity:0.4; cursor:not-allowed; }
+.fps-control input{
+  width:60px;
+  background:var(--bg-panel);
+  border:1px solid var(--border);
+  color:var(--text);
+  border-radius:6px;
+  padding:6px 8px;
+  font-family:var(--mono);
+  font-size:13px
+}
 
-  .status-line{ font-size:13px; color: var(--text-dim); }
-  .status-line strong{ color: var(--success); }
+.section-label{
+  font-size:11.5px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--text-faint);
+  margin:0 0 14px 2px;
+  font-weight:600
+}
 
-  .sync-panel{
-    background: var(--bg-panel); border:1px solid var(--border); border-radius:10px;
-    padding: 20px 22px; margin-bottom: 28px; display:none;
-  }
-  .sync-panel.visible{ display:block; }
-  .sync-panel h2{ font-size:14px; margin:0 0 14px; font-weight:600; color: var(--text); }
-  table.offsets{ width:100%; border-collapse:collapse; font-size:13px; }
-  table.offsets th{
-    text-align:left; color: var(--text-faint); font-weight:500; font-size:11px;
-    text-transform:uppercase; letter-spacing:0.06em; padding: 4px 10px 8px 0; border-bottom:1px solid var(--border-soft);
-  }
-  table.offsets td{ padding: 9px 10px 9px 0; border-bottom:1px solid var(--border-soft); font-family: var(--mono); }
-  table.offsets tr:last-child td{ border-bottom:none; }
-  .offset-positive{ color: var(--accent); }
-  .offset-zero{ color: var(--success); }
+.slots{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:16px;
+  margin-bottom:36px
+}
 
-  .preview-stage{
-    display:none; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-top: 18px;
-  }
-  .preview-stage.visible{ display:grid; }
-  .preview-stage video{ width:100%; border-radius:8px; background:#000; }
-  .preview-stage .cap{ font-size:11px; color: var(--text-faint); margin-top:6px; font-family: var(--mono); }
+@media(max-width:900px){
+  .slots{grid-template-columns:1fr}
+}
 
-  .pose-panel{
-    display:none; background: var(--bg-panel); border:1px solid var(--border); border-radius:10px;
-    padding: 20px 22px; margin-bottom: 28px;
-  }
-  .pose-panel.visible{ display:block; }
-  .pose-panel select{
-    background: var(--bg-panel-raised); color: var(--text); border:1px solid var(--border);
-    border-radius:7px; padding:10px 12px; font-size:13.5px; font-family:'Zen Kaku Gothic New',sans-serif;
-  }
-  .pose-progress{
-    font-size:12.5px; color: var(--text-dim); margin: 4px 0 16px; font-family: var(--mono);
-    display:none;
-  }
-  .pose-progress.visible{ display:block; }
-  .pose-progress-bar{
-    height:4px; background: var(--border); border-radius:2px; margin-top:6px; overflow:hidden;
-  }
-  .pose-progress-bar-fill{ height:100%; background: var(--accent); width:0%; transition: width .1s linear; }
-  .pose-stage{
-    position:relative; width:100%; max-width: 640px; border-radius:8px; overflow:hidden;
-    background:#000; display:none;
-  }
-  .pose-stage.visible{ display:block; }
-  .pose-stage canvas{ width:100%; display:block; }
+.slot{
+  background:var(--bg-panel);
+  border:1px solid var(--border);
+  border-radius:10px;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  min-height:340px
+}
 
-  .vrm-viewport{
-    width:100%; height:460px; background:#0a0d13; border-radius:8px; margin-top:16px;
-    display:none; position:relative; overflow:hidden;
-  }
-  .vrm-viewport.visible{ display:block; }
-  .vrm-viewport canvas{ display:block; width:100%; height:100%; }
-  .vrm-hint{
-    position:absolute; bottom:10px; left:12px; font-size:11px; color: var(--text-faint);
-    font-family: var(--mono); pointer-events:none;
-  }
+.slot-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:12px 14px;
+  border-bottom:1px solid var(--border-soft)
+}
 
-  footer.note{
-    margin-top: 40px; padding-top: 20px; border-top:1px solid var(--border-soft);
-    font-size: 12px; color: var(--text-faint); line-height:1.7;
-  }
+.slot-head .angle-label{
+  font-size:13px;
+  font-weight:600
+}
+
+.slot-head .angle-sub{
+  font-size:11px;
+  color:var(--text-faint);
+  margin-top:1px
+}
+
+.slot-status{
+  font-size:10.5px;
+  padding:3px 8px;
+  border-radius:20px;
+  border:1px solid var(--border);
+  color:var(--text-faint);
+  letter-spacing:.03em
+}
+
+.slot-status.ready{
+  color:var(--success);
+  border-color:rgba(111,207,151,.3);
+  background:var(--success-soft)
+}
+
+.slot-status.analyzing{
+  color:var(--accent);
+  border-color:var(--accent-line);
+  background:var(--accent-soft)
+}
+
+.drop{
+  flex:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  gap:10px;
+  padding:24px;
+  cursor:pointer;
+  color:var(--text-faint);
+  border:1px dashed var(--border);
+  margin:12px;
+  border-radius:8px
+}
+
+.drop:hover{
+  border-color:var(--accent-line);
+  color:var(--text-dim)
+}
+
+.drop svg{opacity:.5}
+
+.drop .hint{
+  font-size:12px;
+  text-align:center;
+  line-height:1.5
+}
+
+.drop .hint b{
+  color:var(--text-dim);
+  font-weight:600
+}
+
+.slot-body{
+  display:none;
+  flex-direction:column;
+  flex:1
+}
+
+.slot.filled .drop{display:none}
+.slot.filled .slot-body{display:flex}
+
+video.preview{
+  width:100%;
+  aspect-ratio:16/9;
+  background:#000;
+  display:block;
+  object-fit:cover
+}
+
+.filename{
+  font-size:11.5px;
+  color:var(--text-dim);
+  padding:8px 14px 0;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  font-family:var(--mono)
+}
+
+.waveform-wrap{
+  padding:8px 14px 4px;
+  position:relative
+}
+
+canvas.waveform{
+  width:100%;
+  height:64px;
+  display:block;
+  border-radius:4px
+}
+
+.clap-readout{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:6px 14px 12px;
+  font-size:12px;
+  color:var(--text-dim)
+}
+
+.clap-readout .time{
+  font-family:var(--mono);
+  color:var(--text)
+}
+
+.nudge{
+  display:flex;
+  gap:4px;
+  align-items:center
+}
+
+.nudge button{
+  width:22px;
+  height:22px;
+  border-radius:5px;
+  border:1px solid var(--border);
+  background:var(--bg-panel-raised);
+  color:var(--text-dim);
+  cursor:pointer;
+  font-size:13px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  line-height:1
+}
+
+.nudge button:hover{
+  border-color:var(--accent-line);
+  color:var(--accent)
+}
+
+.controls-row{
+  display:flex;
+  gap:14px;
+  align-items:center;
+  margin-bottom:30px;
+  flex-wrap:wrap
+}
+
+button.primary{
+  background:var(--accent);
+  color:#181008;
+  border:none;
+  font-weight:700;
+  padding:12px 22px;
+  border-radius:8px;
+  font-size:14px;
+  cursor:pointer;
+  letter-spacing:.01em;
+  font-family:'Zen Kaku Gothic New',sans-serif
+}
+
+button.primary:hover{filter:brightness(1.08)}
+button.primary:active{transform:scale(.98)}
+
+button.primary:disabled{
+  background:var(--border);
+  color:var(--text-faint);
+  cursor:not-allowed
+}
+
+button.secondary{
+  background:transparent;
+  color:var(--text-dim);
+  border:1px solid var(--border);
+  padding:11px 18px;
+  border-radius:8px;
+  font-size:13.5px;
+  cursor:pointer;
+  font-family:'Zen Kaku Gothic New',sans-serif
+}
+
+button.secondary:hover{
+  border-color:var(--accent-line);
+  color:var(--text)
+}
+
+button.secondary:disabled{
+  opacity:.4;
+  cursor:not-allowed
+}
+
+.status-line{
+  font-size:13px;
+  color:var(--text-dim)
+}
+
+.status-line strong{color:var(--success)}
+
+.sync-panel{
+  background:var(--bg-panel);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:20px 22px;
+  margin-bottom:28px;
+  display:none
+}
+
+.sync-panel.visible{display:block}
+
+.sync-panel h2{
+  font-size:14px;
+  margin:0 0 14px;
+  font-weight:600
+}
+
+table.offsets{
+  width:100%;
+  border-collapse:collapse;
+  font-size:13px
+}
+
+table.offsets th{
+  text-align:left;
+  color:var(--text-faint);
+  font-weight:500;
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  padding:4px 10px 8px 0;
+  border-bottom:1px solid var(--border-soft)
+}
+
+table.offsets td{
+  padding:9px 10px 9px 0;
+  border-bottom:1px solid var(--border-soft);
+  font-family:var(--mono)
+}
+
+table.offsets tr:last-child td{border-bottom:none}
+
+.offset-positive{color:var(--accent)}
+.offset-zero{color:var(--success)}
+
+.preview-stage{
+  display:none;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:14px;
+  margin-top:18px
+}
+
+.preview-stage.visible{display:grid}
+
+.preview-stage video{
+  width:100%;
+  border-radius:8px;
+  background:#000
+}
+
+.preview-stage .cap{
+  font-size:11px;
+  color:var(--text-faint);
+  margin-top:6px;
+  font-family:var(--mono)
+}
+
+.pose-panel{
+  display:none;
+  background:var(--bg-panel);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:20px 22px;
+  margin-bottom:28px
+}
+
+.pose-panel.visible{display:block}
+
+.pose-panel select{
+  background:var(--bg-panel-raised);
+  color:var(--text);
+  border:1px solid var(--border);
+  border-radius:7px;
+  padding:10px 12px;
+  font-size:13.5px;
+  font-family:'Zen Kaku Gothic New',sans-serif;
+  max-width:100%
+}
+
+.pose-progress{
+  font-size:12.5px;
+  color:var(--text-dim);
+  margin:4px 0 16px;
+  font-family:var(--mono);
+  display:none
+}
+
+.pose-progress.visible{display:block}
+
+.pose-progress-bar{
+  height:4px;
+  background:var(--border);
+  border-radius:2px;
+  margin-top:6px;
+  overflow:hidden
+}
+
+.pose-progress-bar-fill{
+  height:100%;
+  background:var(--accent);
+  width:0%;
+  transition:width .1s linear
+}
+
+.pose-stage{
+  position:relative;
+  width:100%;
+  max-width:640px;
+  border-radius:8px;
+  overflow:hidden;
+  background:#000;
+  display:none
+}
+
+.pose-stage.visible{display:block}
+
+.pose-stage canvas{
+  width:100%;
+  display:block
+}
+
+.vrm-viewport{
+  width:100%;
+  height:460px;
+  background:#0a0d13;
+  border-radius:8px;
+  margin-top:16px;
+  display:none;
+  position:relative;
+  overflow:hidden
+}
+
+.vrm-viewport.visible{display:block}
+
+.vrm-viewport canvas{
+  display:block;
+  width:100%;
+  height:100%
+}
+
+.vrm-hint{
+  position:absolute;
+  bottom:10px;
+  left:12px;
+  font-size:11px;
+  color:var(--text-faint);
+  font-family:var(--mono);
+  pointer-events:none
+}
+
+footer.note{
+  margin-top:40px;
+  padding-top:20px;
+  border-top:1px solid var(--border-soft);
+  font-size:12px;
+  color:var(--text-faint);
+  line-height:1.7
+}
 </style>
 </head>
+
 <body>
-<div id="fatalErrorBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:9999; background:#8b1e1e; color:#fff; padding:10px 16px; font:12px/1.5 monospace; white-space:pre-wrap; max-height:40vh; overflow:auto;">
-  <button id="fatalErrorClose" style="float:right; background:transparent; border:1px solid rgba(255,255,255,0.4); color:#fff; border-radius:4px; padding:2px 8px; cursor:pointer; font-family:'Zen Kaku Gothic New',sans-serif; font-size:12px;">✕ 閉じる</button>
-  <div id="fatalErrorText"></div>
+
+<div id="fatalErrorBanner"
+ style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;
+ background:#8b1e1e;color:#fff;padding:10px 16px;font:12px/1.5 monospace;
+ white-space:pre-wrap;max-height:40vh;overflow:auto;">
+
+<button id="fatalErrorClose"
+ style="float:right;background:transparent;border:1px solid rgba(255,255,255,.4);
+ color:#fff;border-radius:4px;padding:2px 8px;cursor:pointer;
+ font-family:'Zen Kaku Gothic New',sans-serif;font-size:12px;">
+✕ 閉じる
+</button>
+
+<div id="fatalErrorText"></div>
 </div>
+
 <script>
-  // Surface otherwise-silent script errors (e.g. a bad import in a module
-  // script, which aborts that whole script with no visible sign in the UI)
-  // as a visible banner instead of a page that quietly does nothing.
-  function showFatalError(msg){
-    const el = document.getElementById('fatalErrorBanner');
-    const textEl = document.getElementById('fatalErrorText');
-    el.style.display = 'block';
-    textEl.textContent = '⚠ スクリプトエラー: ' + msg + '\n(この内容をそのまま開発者に伝えてください)';
-  }
-  window.addEventListener('error', (e) => {
-    showFatalError((e.message || 'unknown error') + (e.filename ? ` (${e.filename}:${e.lineno})` : ''));
-  });
-  window.addEventListener('unhandledrejection', (e) => {
-    showFatalError('Promise rejection: ' + (e.reason?.message || e.reason));
-  });
-  document.getElementById('fatalErrorClose').addEventListener('click', () => {
-    document.getElementById('fatalErrorBanner').style.display = 'none';
-  });
+function showFatalError(msg){
+  const el=document.getElementById('fatalErrorBanner');
+  const textEl=document.getElementById('fatalErrorText');
+
+  el.style.display='block';
+  textEl.textContent=
+    '⚠ スクリプトエラー: '+msg+
+    '\n(この内容をそのまま開発者に伝えてください)';
+}
+
+window.addEventListener('error',(e)=>{
+  showFatalError(
+    (e.message||'unknown error')+
+    (e.filename?` (${e.filename}:${e.lineno})`:'')
+  );
+});
+
+window.addEventListener('unhandledrejection',(e)=>{
+  showFatalError(
+    'Promise rejection: '+(e.reason?.message||e.reason)
+  );
+});
+
+document.getElementById('fatalErrorClose').addEventListener('click',()=>{
+  document.getElementById('fatalErrorBanner').style.display='none';
+});
 </script>
+
 <div class="app">
 
-  <header class="top">
-    <div>
-      <div class="brand-mark">
-        <span class="dot"></span>
-        <h1>動画同期ツール</h1>
-      </div>
-      <div class="subtitle">複数カメラ収録の花笠踊り動画を、手拍子の合図で自動同期する</div>
-    </div>
-    <div class="fps-control">
-      フレームレート
-      <input type="number" id="fpsInput" value="30" min="1" max="240">
-      fps
-    </div>
-  </header>
+<header class="top">
+<div>
+<div class="brand-mark">
+<span class="dot"></span>
+<h1>動画同期ツール</h1>
+</div>
 
-  <div class="section-label">01 — 動画を選択(1〜3本)</div>
-  <div class="slots" id="slots"></div>
+<div class="subtitle">
+複数カメラ収録の花笠踊り動画を、手拍子の合図で自動同期する
+</div>
+</div>
 
-  <div class="controls-row">
-    <button class="primary" id="analyzeBtn" disabled>手拍子を検出して同期</button>
-    <button class="secondary" id="exportBtn" disabled>オフセットをJSON書き出し</button>
-    <div class="status-line" id="statusLine"></div>
-  </div>
+<div class="fps-control">
+フレームレート
+<input type="number" id="fpsInput" value="30" min="1" max="240">
+fps
+</div>
+</header>
 
-  <div class="sync-panel" id="syncPanel">
-    <h2>検出結果</h2>
-    <table class="offsets" id="offsetsTable"></table>
-  </div>
+<div class="section-label">01 — 動画を選択(1〜3本)</div>
+<div class="slots" id="slots"></div>
 
-  <div class="section-label" id="previewLabel" style="display:none;">02 — 同期プレビュー</div>
-  <div class="controls-row" id="previewControls" style="display:none;">
-    <button class="secondary" id="playSyncBtn">同期再生</button>
-    <button class="secondary" id="pauseSyncBtn">一時停止</button>
-  </div>
-  <div class="preview-stage" id="previewStage"></div>
+<div class="controls-row">
+<button class="primary" id="analyzeBtn" disabled>
+手拍子を検出して同期
+</button>
 
-  <div class="section-label" id="poseSectionLabel" style="display:none;">03 — 骨格推定(MediaPipe Holistic)</div>
-  <div class="pose-panel" id="posePanel">
-    <div class="controls-row">
-      <select id="poseSourceSelect"></select>
-      <button class="primary" id="runPoseBtn">姿勢推定を実行</button>
-      <button class="secondary" id="exportPoseBtn" disabled>骨格データをJSON書き出し</button>
-    </div>
-    <div class="pose-progress" id="poseProgress">
-      <span id="poseProgressText">待機中</span>
-      <div class="pose-progress-bar"><div class="pose-progress-bar-fill" id="poseProgressFill"></div></div>
-    </div>
-    <div class="pose-stage" id="poseStage">
-      <canvas id="poseCanvas"></canvas>
-    </div>
-  </div>
+<button class="secondary" id="exportBtn" disabled>
+オフセットをJSON書き出し
+</button>
 
-  <div class="section-label" id="vrmSectionLabel" style="display:none;">04 — VRMリターゲティング</div>
-  <div class="pose-panel" id="vrmPanel" style="display:none;">
-    <div class="controls-row">
-      <label class="secondary" style="cursor:pointer; display:inline-flex; align-items:center;">
-        VRM/glbを選択
-        <input type="file" accept=".vrm,.glb" id="vrmFileInput" style="display:none">
-      </label>
-      <label class="secondary" style="cursor:pointer; display:inline-flex; align-items:center;">
-        骨格データ(JSON)を読み込む
-        <input type="file" accept=".json" id="poseJsonFileInput" style="display:none">
-      </label>
-      <button class="primary" id="retargetBtn" disabled>リターゲティングを実行</button>
-    </div>
-    <div class="pose-progress" id="vrmProgress">
-      <span id="vrmProgressText">待機中</span>
-      <div class="pose-progress-bar"><div class="pose-progress-bar-fill" id="vrmProgressFill"></div></div>
-    </div>
-    <div class="controls-row" id="vrmPlaybackControls" style="display:none;">
-      <button class="secondary" id="vrmPlayBtn">再生</button>
-      <button class="secondary" id="vrmPauseBtn">一時停止</button>
-      <button class="secondary" id="vrmExportBtn" disabled>アニメーション付きVRMをglbで書き出し</button>
-    </div>
-    <div class="vrm-viewport" id="vrmViewport">
-      <div class="vrm-hint" id="vrmHint"></div>
-    </div>
-  </div>
+<div class="status-line" id="statusLine"></div>
+</div>
 
-  <footer class="note">
-    手拍子の検出は、各動画の音声から短時間RMSエンベロープを算出し、立ち上がりが最も急峻な地点(先頭5秒以内を優先)を目印として採用しています。誤検出時は各スロットの ± ボタンでフレーム単位に手動補正できます。すべての処理はブラウザ内で完結し、動画ファイルは外部に送信されません。
-  </footer>
+<div class="sync-panel" id="syncPanel">
+<h2>検出結果</h2>
+<table class="offsets" id="offsetsTable"></table>
+</div>
+
+<div class="section-label" id="previewLabel" style="display:none;">
+02 — 同期プレビュー
+</div>
+
+<div class="controls-row" id="previewControls" style="display:none;">
+<button class="secondary" id="playSyncBtn">同期再生</button>
+<button class="secondary" id="pauseSyncBtn">一時停止</button>
+</div>
+
+<div class="preview-stage" id="previewStage"></div>
+
+<div class="section-label" id="poseSectionLabel" style="display:none;">
+03 — 骨格推定(MediaPipe Holistic)
+</div>
+
+<div class="pose-panel" id="posePanel">
+
+<div class="controls-row">
+
+<select id="poseSourceSelect"></select>
+
+<button class="primary" id="runPoseBtn">
+姿勢推定を実行
+</button>
+
+<button class="secondary" id="exportPoseBtn" disabled>
+骨格データをJSON書き出し
+</button>
+
+</div>
+
+<div class="pose-progress" id="poseProgress">
+
+<span id="poseProgressText">待機中</span>
+
+<div class="pose-progress-bar">
+<div class="pose-progress-bar-fill"
+id="poseProgressFill"></div>
+</div>
+
+</div>
+
+<div class="pose-stage" id="poseStage">
+<canvas id="poseCanvas"></canvas>
+</div>
+
+</div>
+
+<div class="section-label" id="vrmSectionLabel" style="display:none;">
+04 — VRMリターゲティング
+</div>
+
+<div class="pose-panel" id="vrmPanel" style="display:none;">
+
+<div class="controls-row">
+
+<label class="secondary"
+style="cursor:pointer;display:inline-flex;align-items:center;">
+VRM/glbを選択
+<input type="file"
+accept=".vrm,.glb"
+id="vrmFileInput"
+style="display:none">
+</label>
+
+<label class="secondary"
+style="cursor:pointer;display:inline-flex;align-items:center;">
+骨格データ(JSON)を読み込む
+<input type="file"
+accept=".json"
+id="poseJsonFileInput"
+style="display:none">
+</label>
+
+<button class="primary"
+id="retargetBtn"
+disabled>
+リターゲティングを実行
+</button>
+
+</div>
+
+<div class="pose-progress" id="vrmProgress">
+
+<span id="vrmProgressText">待機中</span>
+
+<div class="pose-progress-bar">
+<div class="pose-progress-bar-fill"
+id="vrmProgressFill"></div>
+</div>
+
+</div>
+
+<div class="controls-row"
+id="vrmPlaybackControls"
+style="display:none;">
+
+<button class="secondary" id="vrmPlayBtn">
+再生
+</button>
+
+<button class="secondary" id="vrmPauseBtn">
+一時停止
+</button>
+
+<button class="secondary"
+id="vrmExportBtn"
+disabled>
+アニメーション付きVRMをglbで書き出し
+</button>
+
+</div>
+
+<div class="vrm-viewport" id="vrmViewport">
+<div class="vrm-hint" id="vrmHint"></div>
+</div>
+
+</div>
+
+<footer class="note">
+
+手拍子の検出は、各動画の音声から短時間RMSエンベロープを算出し、
+立ち上がりが急峻な地点を目印として採用しています。
+
+誤検出時は各スロットの ± ボタンでフレーム単位に手動補正できます。
+
+今回のV3.1では、屈伸時にアバター全体が上下して足が浮く問題を避けるため、
+モーションキャプチャの絶対的なHips位置をそのままVRMへ適用せず、
+初期姿勢を基準とした位置処理を行います。
+
+すべての処理はブラウザ内で完結し、
+動画ファイルは外部に送信されません。
+
+</footer>
 
 </div>
 
 <script>
-const SLOT_META = [
-  { label: '正面', sub: '距離約4m' },
-  { label: '斜め45度', sub: '距離約4m' },
-  { label: '予備 / 3台目', sub: '任意' },
+
+const SLOT_META=[
+ {label:'正面',sub:'距離約4m'},
+ {label:'斜め45度',sub:'距離約4m'},
+ {label:'予備 / 3台目',sub:'任意'}
 ];
 
-const state = {
-  slots: [null, null, null], // { file, videoEl, audioBuffer, envelope, envRate, clapTime, canvas }
+const state={
+ slots:[null,null,null],
+ poseData:null,
+ _previewActive:null
 };
-window.appState = state;
 
-const slotsEl = document.getElementById('slots');
-const analyzeBtn = document.getElementById('analyzeBtn');
-const exportBtn = document.getElementById('exportBtn');
-const statusLine = document.getElementById('statusLine');
-const syncPanel = document.getElementById('syncPanel');
-const offsetsTable = document.getElementById('offsetsTable');
-const previewStage = document.getElementById('previewStage');
-const previewLabel = document.getElementById('previewLabel');
-const previewControls = document.getElementById('previewControls');
-const fpsInput = document.getElementById('fpsInput');
+window.appState=state;
+
+const slotsEl=document.getElementById('slots');
+const analyzeBtn=document.getElementById('analyzeBtn');
+const exportBtn=document.getElementById('exportBtn');
+const statusLine=document.getElementById('statusLine');
+const syncPanel=document.getElementById('syncPanel');
+const offsetsTable=document.getElementById('offsetsTable');
+const previewStage=document.getElementById('previewStage');
+const previewLabel=document.getElementById('previewLabel');
+const previewControls=document.getElementById('previewControls');
+const fpsInput=document.getElementById('fpsInput');
 
 function buildSlots(){
-  SLOT_META.forEach((meta, i) => {
-    const slot = document.createElement('div');
-    slot.className = 'slot';
-    slot.id = `slot-${i}`;
-    slot.innerHTML = `
-      <div class="slot-head">
-        <div>
-          <div class="angle-label">${meta.label}</div>
-          <div class="angle-sub">${meta.sub}</div>
-        </div>
-        <div class="slot-status" id="status-${i}">未選択</div>
-      </div>
-      <label class="drop" id="drop-${i}">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M12 3v12m0-12l-4 4m4-4l4 4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
-        </svg>
-        <div class="hint"><b>動画を選択</b><br>タップしてファイルを選ぶ</div>
-        <input type="file" accept="video/*" style="display:none" id="file-${i}">
-      </label>
-      <div class="slot-body" id="body-${i}">
-        <video class="preview" id="video-${i}" muted playsinline></video>
-        <div class="filename" id="filename-${i}"></div>
-        <div class="waveform-wrap">
-          <canvas class="waveform" id="wave-${i}"></canvas>
-        </div>
-        <div class="clap-readout">
-          <span>手拍子位置: <span class="time" id="claptime-${i}">—</span></span>
-          <span class="nudge">
-            <button data-slot="${i}" data-dir="-1">−</button>
-            <button data-slot="${i}" data-dir="1">+</button>
-          </span>
-        </div>
-      </div>
-    `;
-    slotsEl.appendChild(slot);
 
-    const input = slot.querySelector(`#file-${i}`);
-    input.addEventListener('change', (e) => {
-      if (e.target.files[0]) handleFile(i, e.target.files[0]);
-    });
+ SLOT_META.forEach((meta,i)=>{
+
+  const slot=document.createElement('div');
+
+  slot.className='slot';
+  slot.id=`slot-${i}`;
+
+  slot.innerHTML=`
+
+  <div class="slot-head">
+
+   <div>
+    <div class="angle-label">${meta.label}</div>
+    <div class="angle-sub">${meta.sub}</div>
+   </div>
+
+   <div class="slot-status"
+        id="status-${i}">
+    未選択
+   </div>
+
+  </div>
+
+  <label class="drop" id="drop-${i}">
+
+   <svg width="28" height="28"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5">
+
+    <path d="M12 3v12m0-12l-4 4m4-4l4 4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+
+   </svg>
+
+   <div class="hint">
+    <b>動画を選択</b><br>
+    タップしてファイルを選ぶ
+   </div>
+
+   <input type="file"
+          accept="video/*"
+          style="display:none"
+          id="file-${i}">
+
+  </label>
+
+  <div class="slot-body">
+
+   <video class="preview"
+          id="video-${i}"
+          muted
+          playsinline>
+   </video>
+
+   <div class="filename"
+        id="filename-${i}">
+   </div>
+
+   <div class="waveform-wrap">
+    <canvas class="waveform"
+            id="wave-${i}">
+    </canvas>
+   </div>
+
+   <div class="clap-readout">
+
+    <span>
+     手拍子位置:
+     <span class="time"
+           id="claptime-${i}">
+      —
+     </span>
+    </span>
+
+    <span class="nudge">
+
+     <button data-slot="${i}"
+             data-dir="-1">−</button>
+
+     <button data-slot="${i}"
+             data-dir="1">+</button>
+
+    </span>
+
+   </div>
+
+  </div>
+  `;
+
+  slotsEl.appendChild(slot);
+
+  const input=slot.querySelector(`#file-${i}`);
+
+  input.addEventListener('change',(e)=>{
+   if(e.target.files[0]){
+    handleFile(i,e.target.files[0]);
+   }
   });
 
-  slotsEl.addEventListener('click', (e) => {
-    const btn = e.target.closest('button[data-slot]');
-    if (!btn) return;
-    const i = parseInt(btn.dataset.slot, 10);
-    const dir = parseInt(btn.dataset.dir, 10);
-    nudgeClap(i, dir);
-  });
+ });
+
+ slotsEl.addEventListener('click',(e)=>{
+
+  const btn=e.target.closest('button[data-slot]');
+  if(!btn)return;
+
+  const i=parseInt(btn.dataset.slot,10);
+  const dir=parseInt(btn.dataset.dir,10);
+
+  nudgeClap(i,dir);
+
+ });
 }
 
-function setStatus(i, text, cls){
-  const el = document.getElementById(`status-${i}`);
-  el.textContent = text;
-  el.className = 'slot-status' + (cls ? ' ' + cls : '');
+function setStatus(i,text,cls){
+
+ const el=document.getElementById(`status-${i}`);
+
+ el.textContent=text;
+ el.className='slot-status'+
+  (cls?' '+cls:'');
 }
 
-async function handleFile(i, file){
-  const slotEl = document.getElementById(`slot-${i}`);
-  slotEl.classList.add('filled');
-  document.getElementById(`filename-${i}`).textContent = file.name;
-  const videoEl = document.getElementById(`video-${i}`);
-  videoEl.src = URL.createObjectURL(file);
+async function handleFile(i,file){
 
-  state.slots[i] = { file, videoEl, audioBuffer: null, envelope: null, envRate: null, clapTime: null };
-  setStatus(i, '音声を解析中…', 'analyzing');
+ const old=state.slots[i];
 
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
-    state.slots[i].audioBuffer = audioBuffer;
+ if(old?.videoUrl){
+  URL.revokeObjectURL(old.videoUrl);
+ }
 
-    const { envelope, envRate } = computeEnvelope(audioBuffer);
-    state.slots[i].envelope = envelope;
-    state.slots[i].envRate = envRate;
+ if(old?.audioContext){
+  try{
+   await old.audioContext.close();
+  }catch{}
+ }
 
-    const clapIdx = detectClap(envelope);
-    state.slots[i].clapTime = clapIdx / envRate;
+ state.poseData=null;
 
-    drawWaveform(i);
-    updateClapReadout(i);
-    setStatus(i, '読み込み完了', 'ready');
-  } catch (err) {
-    console.error(err);
-    // 音声トラックが無い/デコードできない動画(単眼撮影ではよくあるケース)。
-    // これは「同期不能」という意味であって「使えない」わけではないので、
-    // クラップ位置を動画の先頭(0秒)にフォールバックして機能を止めない。
-    // これにより analyzeBtn の有効化条件も満たし、± ボタンでの手動補正も
-    // 引き続き機能する。
-    state.slots[i].clapTime = 0;
-    updateClapReadout(i);
-    setStatus(i, '音声なし(先頭を基準に使用)', '');
+ const slotEl=document.getElementById(`slot-${i}`);
+
+ slotEl.classList.add('filled');
+
+ document.getElementById(`filename-${i}`).textContent=file.name;
+
+ const videoEl=document.getElementById(`video-${i}`);
+
+ const videoUrl=URL.createObjectURL(file);
+
+ videoEl.src=videoUrl;
+
+ state.slots[i]={
+  file,
+  videoEl,
+  videoUrl,
+  audioBuffer:null,
+  audioContext:null,
+  envelope:null,
+  envRate:null,
+  clapTime:null,
+  audioAvailable:false,
+  clapDetected:false
+ };
+
+ setStatus(i,'音声を解析中…','analyzing');
+
+ try{
+
+  const arrayBuffer=await file.arrayBuffer();
+
+  const ctx=new(window.AudioContext||
+              window.webkitAudioContext)();
+
+  state.slots[i].audioContext=ctx;
+
+  const audioBuffer=
+   await ctx.decodeAudioData(arrayBuffer.slice(0));
+
+  state.slots[i].audioBuffer=audioBuffer;
+  state.slots[i].audioAvailable=true;
+
+  const {envelope,envRate}=computeEnvelope(audioBuffer);
+
+  state.slots[i].envelope=envelope;
+  state.slots[i].envRate=envRate;
+
+  const clapIdx=detectClap(envelope);
+
+  if(clapIdx===null){
+   state.slots[i].clapTime=null;
+   state.slots[i].clapDetected=false;
+
+   setStatus(i,'手拍子未検出','');
+  }else{
+
+   state.slots[i].clapTime=
+    clapIdx/envRate;
+
+   state.slots[i].clapDetected=true;
+
+   drawWaveform(i);
+   updateClapReadout(i);
+
+   setStatus(i,'読み込み完了','ready');
   }
 
-  refreshControls();
-}
+ }catch(err){
 
-// --- audio analysis -------------------------------------------------
+  console.warn('音声解析失敗:',err);
+
+  state.slots[i].audioAvailable=false;
+  state.slots[i].clapDetected=false;
+  state.slots[i].clapTime=null;
+
+  updateClapReadout(i);
+
+  setStatus(i,'音声なし・手動同期が必要','');
+
+ }
+
+ refreshControls();
+}
 
 function computeEnvelope(audioBuffer){
-  const targetRate = 200; // envelope samples per second (5ms windows)
-  const raw = audioBuffer.getChannelData(0);
-  const sr = audioBuffer.sampleRate;
-  const windowSize = Math.floor(sr / targetRate);
-  const numWindows = Math.floor(raw.length / windowSize);
-  const envelope = new Float32Array(numWindows);
-  for (let w = 0; w < numWindows; w++){
-    let sumSq = 0;
-    const start = w * windowSize;
-    for (let s = 0; s < windowSize; s++){
-      const v = raw[start + s];
-      sumSq += v * v;
-    }
-    envelope[w] = Math.sqrt(sumSq / windowSize);
+
+ const targetRate=200;
+
+ const raw=audioBuffer.getChannelData(0);
+ const sr=audioBuffer.sampleRate;
+
+ const windowSize=
+  Math.max(1,Math.floor(sr/targetRate));
+
+ const numWindows=
+  Math.floor(raw.length/windowSize);
+
+ const envelope=
+  new Float32Array(numWindows);
+
+ for(let w=0;w<numWindows;w++){
+
+  let sumSq=0;
+
+  const start=w*windowSize;
+
+  for(let s=0;s<windowSize;s++){
+
+   const v=raw[start+s];
+
+   sumSq+=v*v;
+
   }
-  return { envelope, envRate: targetRate };
+
+  envelope[w]=
+   Math.sqrt(sumSq/windowSize);
+ }
+
+ return{
+  envelope,
+  envRate:targetRate
+ };
 }
 
-// Find the sharpest rising transient (the clap), searching the whole
-// clip but weighting the first few seconds since that's where the cue is.
 function detectClap(envelope){
-  const preferWindowSec = 8; // seconds where a clap is expected
-  const rate = 200;
-  const preferSamples = Math.min(envelope.length, preferWindowSec * rate);
 
-  const diffs = new Float32Array(envelope.length);
-  for (let i = 3; i < envelope.length; i++){
-    diffs[i] = envelope[i] - envelope[i - 3];
-  }
+ if(!envelope || envelope.length<4){
+  return null;
+ }
 
-  let bestIdx = 3;
-  let bestScore = -Infinity;
-  for (let i = 3; i < envelope.length; i++){
-    const inPreferWindow = i < preferSamples;
-    const weight = inPreferWindow ? 1.0 : 0.35;
-    const score = diffs[i] * weight;
-    if (score > bestScore){
-      bestScore = score;
-      bestIdx = i;
-    }
+ const preferWindowSec=8;
+ const rate=200;
+
+ const preferSamples=
+  Math.min(
+   envelope.length,
+   preferWindowSec*rate
+  );
+
+ let bestIdx=null;
+ let bestScore=-Infinity;
+
+ for(let i=3;i<envelope.length;i++){
+
+  const diff=
+   envelope[i]-envelope[i-3];
+
+  const inPreferWindow=
+   i<preferSamples;
+
+  const weight=
+   inPreferWindow?1.0:.35;
+
+  const score=diff*weight;
+
+  if(score>bestScore){
+
+   bestScore=score;
+   bestIdx=i;
   }
-  return bestIdx;
+ }
+
+ return bestIdx;
 }
 
 function drawWaveform(i){
-  const { envelope, clapTime, envRate } = state.slots[i];
-  const canvas = document.getElementById(`wave-${i}`);
-  const dpr = window.devicePixelRatio || 1;
-  const cssW = canvas.clientWidth || 300;
-  const cssH = 64;
-  canvas.width = cssW * dpr;
-  canvas.height = cssH * dpr;
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
-  ctx.clearRect(0, 0, cssW, cssH);
-  ctx.fillStyle = '#161b26';
-  ctx.fillRect(0, 0, cssW, cssH);
 
-  const max = Math.max(...envelope) || 1;
-  const step = Math.max(1, Math.floor(envelope.length / cssW));
-  ctx.fillStyle = '#3d5a99';
-  for (let x = 0; x < cssW; x++){
-    const idx = x * step;
-    let peak = 0;
-    for (let k = 0; k < step; k++){
-      const v = envelope[idx + k] || 0;
-      if (v > peak) peak = v;
-    }
-    const h = Math.max(1, (peak / max) * (cssH - 4));
-    ctx.fillRect(x, (cssH - h) / 2, 1, h);
+ const slot=state.slots[i];
+
+ if(!slot?.envelope)return;
+
+ const envelope=slot.envelope;
+ const clapTime=slot.clapTime;
+ const envRate=slot.envRate;
+
+ const canvas=
+  document.getElementById(`wave-${i}`);
+
+ const dpr=
+  window.devicePixelRatio||1;
+
+ const cssW=
+  canvas.clientWidth||300;
+
+ const cssH=64;
+
+ canvas.width=cssW*dpr;
+ canvas.height=cssH*dpr;
+
+ const ctx=canvas.getContext('2d');
+
+ ctx.setTransform(
+  dpr,0,0,dpr,0,0
+ );
+
+ ctx.clearRect(
+  0,0,cssW,cssH
+ );
+
+ ctx.fillStyle='#161b26';
+ ctx.fillRect(
+  0,0,cssW,cssH
+ );
+
+ let max=0;
+
+ for(let j=0;j<envelope.length;j++){
+
+  if(envelope[j]>max){
+   max=envelope[j];
+  }
+ }
+
+ max=max||1;
+
+ const step=
+  Math.max(
+   1,
+   Math.floor(envelope.length/cssW)
+  );
+
+ ctx.fillStyle='#3d5a99';
+
+ for(let x=0;x<cssW;x++){
+
+  const idx=x*step;
+
+  let peak=0;
+
+  for(let k=0;k<step;k++){
+
+   const v=
+    envelope[idx+k]||0;
+
+   if(v>peak)peak=v;
   }
 
-  const clapIdx = Math.round(clapTime * envRate);
-  const clapX = Math.min(cssW - 1, Math.floor(clapIdx / step));
-  ctx.strokeStyle = '#e8604c';
-  ctx.lineWidth = 1.5;
+  const h=
+   Math.max(
+    1,
+    (peak/max)*(cssH-4)
+   );
+
+  ctx.fillRect(
+   x,
+   (cssH-h)/2,
+   1,
+   h
+  );
+ }
+
+ if(clapTime!==null){
+
+  const clapIdx=
+   Math.round(clapTime*envRate);
+
+  const clapX=
+   Math.min(
+    cssW-1,
+    Math.floor(clapIdx/step)
+   );
+
+  ctx.strokeStyle='#e8604c';
+  ctx.lineWidth=1.5;
+
   ctx.beginPath();
-  ctx.moveTo(clapX + 0.5, 0);
-  ctx.lineTo(clapX + 0.5, cssH);
+
+  ctx.moveTo(
+   clapX+.5,
+   0
+  );
+
+  ctx.lineTo(
+   clapX+.5,
+   cssH
+  );
+
   ctx.stroke();
+ }
 }
 
 function updateClapReadout(i){
-  const t = state.slots[i].clapTime;
-  document.getElementById(`claptime-${i}`).textContent = formatTime(t);
+
+ const t=state.slots[i]?.clapTime;
+
+ document.getElementById(
+  `claptime-${i}`
+ ).textContent=formatTime(t);
 }
 
-function nudgeClap(i, dir){
-  const slot = state.slots[i];
-  if (!slot || slot.clapTime === null) return;
-  const fps = parseFloat(fpsInput.value) || 30;
-  slot.clapTime = Math.max(0, slot.clapTime + dir * (1 / fps));
-  updateClapReadout(i);
+function nudgeClap(i,dir){
+
+ const slot=state.slots[i];
+
+ if(!slot)return;
+
+ const fps=
+  parseFloat(fpsInput.value)||30;
+
+ if(slot.clapTime===null){
+
+  slot.clapTime=0;
+  slot.clapDetected=false;
+
+ }
+
+ slot.clapTime=
+  Math.max(
+   0,
+   slot.clapTime+
+   dir*(1/fps)
+  );
+
+ updateClapReadout(i);
+
+ if(slot.envelope){
   drawWaveform(i);
-  if (syncPanel.classList.contains('visible')) renderOffsetsTable();
+ }
+
+ if(syncPanel.classList.contains('visible')){
+  renderOffsetsTable();
+ }
+
+ refreshControls();
 }
 
 function formatTime(sec){
-  if (sec === null || sec === undefined) return '—';
-  const m = Math.floor(sec / 60);
-  const s = (sec % 60).toFixed(2);
-  return `${m}:${s.padStart(5, '0')}`;
+
+ if(sec===null||
+    sec===undefined||
+    !Number.isFinite(sec)){
+  return '—';
+ }
+
+ const m=Math.floor(sec/60);
+
+ const s=(sec%60).toFixed(2);
+
+ return`${m}:${s.padStart(5,'0')}`;
 }
 
-// --- sync computation -------------------------------------------------
-
 function activeSlots(){
-  return state.slots
-    .map((s, i) => ({ ...s, index: i, meta: SLOT_META[i] }))
-    .filter(s => s.file && s.clapTime !== null); // clapTime未確定(音声解析失敗)のスロットは除外
+
+ return state.slots
+  .map((s,i)=>({
+   ...s,
+   index:i,
+   meta:SLOT_META[i]
+  }))
+  .filter(s=>
+   s.file &&
+   s.clapTime!==null &&
+   Number.isFinite(s.clapTime)
+  );
 }
 
 function renderOffsetsTable(){
-  const active = activeSlots();
-  const ref = active[0];
-  let rows = `<tr><th>カメラ</th><th>手拍子位置</th><th>基準とのオフセット</th><th>フレーム換算</th></tr>`;
-  const fps = parseFloat(fpsInput.value) || 30;
-  active.forEach(s => {
-    const offset = s.clapTime - ref.clapTime;
-    const cls = Math.abs(offset) < 0.001 ? 'offset-zero' : 'offset-positive';
-    const frames = Math.round(offset * fps);
-    rows += `<tr>
-      <td>${s.meta.label}</td>
-      <td>${formatTime(s.clapTime)}</td>
-      <td class="${cls}">${offset >= 0 ? '+' : ''}${offset.toFixed(3)}s</td>
-      <td>${frames >= 0 ? '+' : ''}${frames} frame</td>
-    </tr>`;
-  });
-  offsetsTable.innerHTML = rows;
-  syncPanel.classList.add('visible');
+
+ const active=activeSlots();
+
+ if(!active.length)return;
+
+ const ref=active[0];
+
+ let rows=
+ `<tr>
+  <th>カメラ</th>
+  <th>手拍子位置</th>
+  <th>基準とのオフセット</th>
+  <th>フレーム換算</th>
+ </tr>`;
+
+ const fps=
+  parseFloat(fpsInput.value)||30;
+
+ active.forEach(s=>{
+
+  const offset=
+   s.clapTime-ref.clapTime;
+
+  const cls=
+   Math.abs(offset)<.001
+   ?'offset-zero'
+   :'offset-positive';
+
+  const frames=
+   Math.round(offset*fps);
+
+  rows+=`
+  <tr>
+   <td>${s.meta.label}</td>
+   <td>${formatTime(s.clapTime)}</td>
+   <td class="${cls}">
+    ${offset>=0?'+':''}${offset.toFixed(3)}s
+   </td>
+   <td>
+    ${frames>=0?'+':''}${frames} frame
+   </td>
+  </tr>`;
+ });
+
+ offsetsTable.innerHTML=rows;
+
+ syncPanel.classList.add('visible');
 }
 
 function refreshControls(){
-  const active = activeSlots();
-  analyzeBtn.disabled = active.length < 1;
-  exportBtn.disabled = !syncPanel.classList.contains('visible');
+
+ const active=activeSlots();
+
+ analyzeBtn.disabled=
+  active.length<1;
+
+ exportBtn.disabled=
+  !syncPanel.classList.contains('visible');
 }
 
-analyzeBtn.addEventListener('click', () => {
-  const all = state.slots.filter(s => s && s.file);
-  const active = activeSlots();
-  if (active.length === 0) return;
+analyzeBtn.addEventListener('click',()=>{
 
-  renderOffsetsTable();
-  buildPreviewStage(active);
-  exportBtn.disabled = false;
+ const all=
+  state.slots.filter(s=>s&&s.file);
 
-  // 手拍子が検出できず除外されたカメラがある場合は、統計に含まれていないことをはっきり伝える
-  if (active.length < all.length) {
-    statusLine.innerHTML = `<strong>${active.length}本の動画を同期しました。</strong>` +
-      `<span style="color:var(--accent)"> ⚠ ${all.length - active.length}本は手拍子を検出できず除外されました</span>`;
-  } else {
-    statusLine.innerHTML = `<strong>${active.length}本の動画を同期しました。</strong>`;
-  }
+ const active=activeSlots();
 
-  revealPoseSection(active);
+ if(!active.length)return;
+
+ renderOffsetsTable();
+
+ buildPreviewStage(active);
+
+ exportBtn.disabled=false;
+
+ if(active.length<all.length){
+
+  statusLine.innerHTML=
+   `<strong>${active.length}本の動画を同期しました。</strong>`+
+   `<span style="color:var(--accent)"> ⚠ `+
+   `${all.length-active.length}本は手拍子未検出です。`+
+   `±ボタンで手動指定してください。</span>`;
+
+ }else{
+
+  statusLine.innerHTML=
+   `<strong>${active.length}本の動画を同期しました。</strong>`;
+ }
+
+ revealPoseSection(active);
 });
 
-exportBtn.addEventListener('click', () => {
-  const active = activeSlots();
-  const ref = active[0];
-  const data = {
-    frameRate: parseFloat(fpsInput.value) || 30,
-    cameras: active.map(s => ({
-      slot: s.index,
-      angle: s.meta.label,
-      filename: s.file.name,
-      // activeSlots()側でclapTime !== nullは保証済みだが、念のため二重にガードしておく
-      clapTimeSeconds: s.clapTime !== null ? Number(s.clapTime.toFixed(4)) : null,
-      offsetFromReferenceSeconds: (s.clapTime !== null && ref.clapTime !== null)
-        ? Number((s.clapTime - ref.clapTime).toFixed(4))
-        : null,
-    })),
-  };
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'sync-offsets.json';
-  a.click();
-});
+exportBtn.addEventListener('click',()=>{
 
-// --- synced preview -------------------------------------------------
+ const active=activeSlots();
+
+ if(!active.length)return;
+
+ const ref=active[0];
+
+ const data={
+  frameRate:
+   parseFloat(fpsInput.value)||30,
+
+  cameras:active.map(s=>({
+
+   slot:s.index,
+
+   angle:s.meta.label,
+
+   filename:s.file.name,
+
+   clapTimeSeconds:
+    Number(s.clapTime.toFixed(4)),
+
+   offsetFromReferenceSeconds:
+    Number(
+     (s.clapTime-ref.clapTime)
+     .toFixed(4)
+    )
+  }))
+ };
+
+ const blob=new Blob(
+  [JSON.stringify(data,null,2)],
+  {type:'application/json'}
+ );
+
+ const a=document.createElement('a');
+
+ a.href=URL.createObjectURL(blob);
+ a.download='sync-offsets.json';
+
+ a.click();
+});
 
 function buildPreviewStage(active){
-  previewStage.innerHTML = '';
-  previewLabel.style.display = 'block';
-  previewControls.style.display = 'flex';
-  previewStage.classList.add('visible');
 
-  active.forEach(s => {
-    const wrap = document.createElement('div');
-    const vid = document.createElement('video');
-    vid.controls = true;
-    vid.playsInline = true;
-    vid.src = URL.createObjectURL(s.file);
-    vid.id = `preview-vid-${s.index}`;
-    wrap.appendChild(vid);
-    const cap = document.createElement('div');
-    cap.className = 'cap';
-    cap.textContent = `${s.meta.label} — clap @ ${formatTime(s.clapTime)}`;
-    wrap.appendChild(cap);
-    previewStage.appendChild(wrap);
-  });
+ previewStage.innerHTML='';
 
-  state._previewActive = active;
+ previewLabel.style.display='block';
+
+ previewControls.style.display='flex';
+
+ previewStage.classList.add('visible');
+
+ active.forEach(s=>{
+
+  const wrap=document.createElement('div');
+
+  const vid=document.createElement('video');
+
+  vid.controls=true;
+  vid.playsInline=true;
+  vid.src=URL.createObjectURL(s.file);
+
+  vid.id=`preview-vid-${s.index}`;
+
+  wrap.appendChild(vid);
+
+  const cap=document.createElement('div');
+
+  cap.className='cap';
+
+  cap.textContent=
+   `${s.meta.label} — clap @ ${formatTime(s.clapTime)}`;
+
+  wrap.appendChild(cap);
+
+  previewStage.appendChild(wrap);
+ });
+
+ state._previewActive=active;
 }
 
-document.getElementById('playSyncBtn').addEventListener('click', async () => {
-  const active = state._previewActive;
-  if (!active) return;
-  await Promise.all(active.map(s => {
-    const vid = document.getElementById(`preview-vid-${s.index}`);
-    vid.currentTime = s.clapTime;
-    return Promise.resolve();
-  }));
-  active.forEach(s => {
-    document.getElementById(`preview-vid-${s.index}`).play();
-  });
+async function seekTo(video,time){
+
+ return new Promise((resolve,reject)=>{
+
+  let done=false;
+
+  const cleanup=()=>{
+
+   video.removeEventListener(
+    'seeked',
+    onSeeked
+   );
+
+   video.removeEventListener(
+    'error',
+    onError
+   );
+  };
+
+  const finish=()=>{
+   if(done)return;
+
+   done=true;
+
+   cleanup();
+
+   resolve();
+  };
+
+  const fail=(e)=>{
+   if(done)return;
+
+   done=true;
+
+   cleanup();
+
+   reject(
+    e instanceof Error
+    ?e
+    :new Error('動画のシークに失敗しました')
+   );
+  };
+
+  const onSeeked=()=>finish();
+
+  const onError=()=>fail(
+   new Error('動画のシークに失敗しました')
+  );
+
+  video.addEventListener(
+   'seeked',
+   onSeeked,
+   {once:true}
+  );
+
+  video.addEventListener(
+   'error',
+   onError,
+   {once:true}
+  );
+
+  try{
+
+   if(Math.abs(video.currentTime-time)<0.0001){
+
+    finish();
+
+   }else{
+
+    video.currentTime=time;
+   }
+
+  }catch(err){
+
+   fail(err);
+  }
+
+ });
+}
+
+document.getElementById('playSyncBtn')
+.addEventListener('click',async()=>{
+
+ const active=state._previewActive;
+
+ if(!active)return;
+
+ try{
+
+  await Promise.all(
+   active.map(async s=>{
+
+    const vid=
+     document.getElementById(
+      `preview-vid-${s.index}`
+     );
+
+    await seekTo(
+     vid,
+     s.clapTime
+    );
+   })
+  );
+
+  await Promise.all(
+   active.map(s=>
+    document
+     .getElementById(
+      `preview-vid-${s.index}`
+     )
+     .play()
+  ));
+
+ }catch(err){
+
+  console.error(err);
+  statusLine.textContent=
+   '同期再生に失敗しました。';
+ }
 });
 
-document.getElementById('pauseSyncBtn').addEventListener('click', () => {
-  const active = state._previewActive;
-  if (!active) return;
-  active.forEach(s => {
-    document.getElementById(`preview-vid-${s.index}`).pause();
-  });
+document.getElementById('pauseSyncBtn')
+.addEventListener('click',()=>{
+
+ const active=state._previewActive;
+
+ if(!active)return;
+
+ active.forEach(s=>{
+
+  document
+   .getElementById(
+    `preview-vid-${s.index}`
+   )
+   .pause();
+
+ });
 });
 
 buildSlots();
 refreshControls();
 
-// --- pose estimation (MediaPipe Holistic, offline frame-stepping) ----
+const poseSectionLabel=
+ document.getElementById('poseSectionLabel');
 
-const poseSectionLabel = document.getElementById('poseSectionLabel');
-const posePanel = document.getElementById('posePanel');
-const poseSourceSelect = document.getElementById('poseSourceSelect');
-const runPoseBtn = document.getElementById('runPoseBtn');
-const exportPoseBtn = document.getElementById('exportPoseBtn');
-const poseProgress = document.getElementById('poseProgress');
-const poseProgressText = document.getElementById('poseProgressText');
-const poseProgressFill = document.getElementById('poseProgressFill');
-const poseStage = document.getElementById('poseStage');
-const poseCanvas = document.getElementById('poseCanvas');
+const posePanel=
+ document.getElementById('posePanel');
 
-let holisticInstance = null;
-let poseRunning = false;
+const poseSourceSelect=
+ document.getElementById('poseSourceSelect');
+
+const runPoseBtn=
+ document.getElementById('runPoseBtn');
+
+const exportPoseBtn=
+ document.getElementById('exportPoseBtn');
+
+const poseProgress=
+ document.getElementById('poseProgress');
+
+const poseProgressText=
+ document.getElementById('poseProgressText');
+
+const poseProgressFill=
+ document.getElementById('poseProgressFill');
+
+const poseStage=
+ document.getElementById('poseStage');
+
+const poseCanvas=
+ document.getElementById('poseCanvas');
 
 function revealPoseSection(active){
-  poseSectionLabel.style.display = 'block';
-  posePanel.classList.add('visible');
-  poseSourceSelect.innerHTML = active
-    .map(s => `<option value="${s.index}">${s.meta.label} — ${s.file.name}</option>`)
-    .join('');
+
+ poseSectionLabel.style.display='block';
+
+ posePanel.classList.add('visible');
+
+ poseSourceSelect.innerHTML=
+  active.map(s=>
+   `<option value="${s.index}">
+    ${s.meta.label} — ${s.file.name}
+   </option>`
+  ).join('');
 }
 
-function seeked(video){
-  return new Promise(resolve => {
-    const handler = () => { video.removeEventListener('seeked', handler); resolve(); };
-    video.addEventListener('seeked', handler);
-  });
-}
+runPoseBtn.addEventListener('click',()=>{
 
-function getHolistic(){
-  if (holisticInstance) return holisticInstance;
-  holisticInstance = new Holistic({
-    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`,
-  });
-  holisticInstance.setOptions({
-    modelComplexity: 1,
-    smoothLandmarks: true,
-    refineFaceLandmarks: false,
-    minDetectionConfidence: 0.5,
-    minTrackingConfidence: 0.5,
-  });
-  return holisticInstance;
-}
+ const slotIndex=
+  parseInt(
+   poseSourceSelect.value,
+   10
+  );
 
-function stripLandmarks(landmarks){
-  if (!landmarks) return null;
-  return landmarks.map(p => ({
-    x: Number(p.x.toFixed(5)),
-    y: Number(p.y.toFixed(5)),
-    z: Number(p.z.toFixed(5)),
-    visibility: p.visibility !== undefined ? Number(p.visibility.toFixed(3)) : undefined,
-  }));
-}
+ if(Number.isNaN(slotIndex))return;
 
-async function runPoseEstimation(slotIndex){
-  const slot = state.slots[slotIndex];
-  if (!slot) return;
-
-  runPoseBtn.disabled = true;
-  exportPoseBtn.disabled = true;
-  poseProgress.classList.add('visible');
-  poseStage.classList.add('visible');
-  poseProgressText.textContent = 'モデルを読み込み中…';
-
-  const video = document.createElement('video');
-  video.src = URL.createObjectURL(slot.file);
-  video.muted = true;
-  video.playsInline = true;
-  await new Promise(res => { video.onloadedmetadata = res; });
-
-  const fps = parseFloat(fpsInput.value) || 30;
-  const startTime = slot.clapTime || 0;
-  const duration = video.duration;
-  const frameInterval = 1 / fps;
-  const totalFrames = Math.max(1, Math.floor((duration - startTime) * fps));
-
-  poseCanvas.width = video.videoWidth;
-  poseCanvas.height = video.videoHeight;
-  const ctx = poseCanvas.getContext('2d');
-
-  const holistic = getHolistic();
-  let latestResults = null;
-  holistic.onResults((results) => { latestResults = results; });
-
-  const captured = [];
-  let t = startTime;
-  let frameIdx = 0;
-  poseRunning = true;
-
-  while (t < duration && poseRunning){
-    video.currentTime = t;
-    await seeked(video);
-    await holistic.send({ image: video });
-
-    ctx.save();
-    ctx.clearRect(0, 0, poseCanvas.width, poseCanvas.height);
-    ctx.drawImage(video, 0, 0, poseCanvas.width, poseCanvas.height);
-    if (latestResults){
-      if (latestResults.poseLandmarks){
-        window.drawConnectors(ctx, latestResults.poseLandmarks, window.POSE_CONNECTIONS, { color: '#e8604c', lineWidth: 2 });
-        window.drawLandmarks(ctx, latestResults.poseLandmarks, { color: '#eef0f4', radius: 2 });
-      }
-      if (latestResults.leftHandLandmarks){
-        window.drawConnectors(ctx, latestResults.leftHandLandmarks, window.HAND_CONNECTIONS, { color: '#3d5a99', lineWidth: 1.5 });
-      }
-      if (latestResults.rightHandLandmarks){
-        window.drawConnectors(ctx, latestResults.rightHandLandmarks, window.HAND_CONNECTIONS, { color: '#3d5a99', lineWidth: 1.5 });
-      }
-    }
-    ctx.restore();
-
-    captured.push({
-      frame: frameIdx,
-      t: Number((t - startTime).toFixed(4)),
-      pose: stripLandmarks(latestResults && latestResults.poseLandmarks),
-      poseWorld: stripLandmarks(latestResults && latestResults.poseWorldLandmarks),
-      leftHand: stripLandmarks(latestResults && latestResults.leftHandLandmarks),
-      rightHand: stripLandmarks(latestResults && latestResults.rightHandLandmarks),
-    });
-
-    frameIdx++;
-    t += frameInterval;
-
-    const pct = Math.min(100, Math.round((frameIdx / totalFrames) * 100));
-    poseProgressFill.style.width = pct + '%';
-    poseProgressText.textContent = `フレーム ${frameIdx}/${totalFrames} 処理中(${pct}%)`;
-  }
-
-  state.poseData = {
-    slotIndex,
-    sourceFilename: slot.file.name,
-    frameRate: fps,
-    startTimeSeconds: startTime,
-    frames: captured,
-  };
-
-  poseProgressText.textContent = `完了 — ${captured.length}フレームを抽出しました`;
-  runPoseBtn.disabled = false;
-  exportPoseBtn.disabled = false;
-  poseRunning = false;
-  window.dispatchEvent(new CustomEvent('pose-data-ready'));
-}
-
-runPoseBtn.addEventListener('click', () => {
-  const slotIndex = parseInt(poseSourceSelect.value, 10);
-  if (isNaN(slotIndex)) return;
-  // Uses the HolisticLandmarker (Tasks Vision) implementation defined in the
-  // module script below — the legacy @mediapipe/holistic API used by
-  // runPoseEstimation() above does not provide real-world (metric) 3D
-  // landmarks, which Kalidokit needs for correct depth/position.
-  window.runPoseEstimationV2(slotIndex);
+ window.runPoseEstimationV2(
+  slotIndex
+ );
 });
 
-exportPoseBtn.addEventListener('click', () => {
-  if (!state.poseData) return;
-  const blob = new Blob([JSON.stringify(state.poseData, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `pose-${state.poseData.sourceFilename.replace(/\.[^.]+$/, '')}.json`;
-  a.click();
+exportPoseBtn.addEventListener('click',()=>{
+
+ if(!state.poseData)return;
+
+ const blob=new Blob(
+  [JSON.stringify(
+   state.poseData,
+   null,
+   2
+  )],
+  {type:'application/json'}
+ );
+
+ const a=document.createElement('a');
+
+ a.href=URL.createObjectURL(blob);
+
+ a.download=
+  `pose-${state.poseData.sourceFilename
+   .replace(/\.[^.]+$/,'')}.json`;
+
+ a.click();
 });
+
 </script>
 
-<script type="module">
-// HolisticLandmarker (MediaPipe Tasks Vision) — replaces the legacy
-// @mediapipe/holistic API used above for the classic runPoseEstimation()
-// function. The legacy API never officially exposed real-world (metric) 3D
-// pose landmarks in its JS build; this newer unified API does, which
-// Kalidokit needs to compute correct depth/position for the VRM retargeting
-// step. See: https://ai.google.dev/edge/mediapipe/solutions/vision/holistic_landmarker
-import { HolisticLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 
-let holisticLandmarkerInstance = null;
+<script type="module">
+
+import{
+ HolisticLandmarker,
+ FilesetResolver
+}from'@mediapipe/tasks-vision';
+
+let holisticLandmarkerInstance=null;
 
 async function getHolisticLandmarker(){
-  if (holisticLandmarkerInstance) return holisticLandmarkerInstance;
-  const filesetResolver = await FilesetResolver.forVisionTasks(
-    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm'
-  );
-  holisticLandmarkerInstance = await HolisticLandmarker.createFromOptions(filesetResolver, {
-    baseOptions: {
-      modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/holistic_landmarker/holistic_landmarker/float16/latest/holistic_landmarker.task',
-      delegate: 'CPU', // GPU delegate has known unsupported-op issues for this bundle
-    },
-    runningMode: 'VIDEO',
-  });
+
+ if(holisticLandmarkerInstance){
   return holisticLandmarkerInstance;
+ }
+
+ const filesetResolver=
+  await FilesetResolver.forVisionTasks(
+   'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm'
+  );
+
+ holisticLandmarkerInstance=
+  await HolisticLandmarker.createFromOptions(
+   filesetResolver,
+   {
+    baseOptions:{
+     modelAssetPath:
+      'https://storage.googleapis.com/mediapipe-models/holistic_landmarker/holistic_landmarker/float16/latest/holistic_landmarker.task',
+     delegate:'CPU'
+    },
+
+    runningMode:'VIDEO'
+   }
+  );
+
+ return holisticLandmarkerInstance;
 }
 
-// Result fields may come back either as a flat landmark array or as a
-// per-detection array-of-arrays depending on API version — handle both.
 function unwrapLandmarks(x){
-  if (!x) return null;
-  if (Array.isArray(x) && x.length && Array.isArray(x[0])) return x[0].length ? x[0] : null;
-  if (Array.isArray(x) && x.length && typeof x[0]?.x === 'number') return x;
-  return null;
+
+ if(!x)return null;
+
+ if(
+  Array.isArray(x)&&
+  x.length&&
+  Array.isArray(x[0])
+ ){
+
+  return x[0].length
+   ?x[0]
+   :null;
+ }
+
+ if(
+  Array.isArray(x)&&
+  x.length&&
+  typeof x[0]?.x==='number'
+ ){
+
+  return x;
+ }
+
+ return null;
 }
 
 function stripLm(landmarks){
-  if (!landmarks) return null;
-  return landmarks.map((p) => ({
-    x: Number(p.x.toFixed(5)),
-    y: Number(p.y.toFixed(5)),
-    z: Number(p.z.toFixed(5)),
-    visibility: p.visibility !== undefined ? Number(p.visibility.toFixed(3)) : undefined,
-  }));
+
+ if(!landmarks)return null;
+
+ return landmarks.map(p=>({
+
+  x:Number(p.x.toFixed(5)),
+
+  y:Number(p.y.toFixed(5)),
+
+  z:Number(p.z.toFixed(5)),
+
+  visibility:
+   p.visibility!==undefined
+   ?Number(p.visibility.toFixed(3))
+   :undefined
+ }));
 }
 
-function seekedV2(video){
-  return new Promise((resolve) => {
-    const handler = () => { video.removeEventListener('seeked', handler); resolve(); };
-    video.addEventListener('seeked', handler);
-  });
-}
+window.runPoseEstimationV2=
+async function(slotIndex){
 
-window.runPoseEstimationV2 = async function runPoseEstimationV2(slotIndex){
-  const state = window.appState;
-  const slot = state.slots[slotIndex];
-  if (!slot) return;
+ const state=window.appState;
 
-  const runPoseBtn = document.getElementById('runPoseBtn');
-  const exportPoseBtn = document.getElementById('exportPoseBtn');
-  const poseProgress = document.getElementById('poseProgress');
-  const poseProgressText = document.getElementById('poseProgressText');
-  const poseProgressFill = document.getElementById('poseProgressFill');
-  const poseStage = document.getElementById('poseStage');
-  const poseCanvas = document.getElementById('poseCanvas');
-  const fpsInput = document.getElementById('fpsInput');
+ const slot=state.slots[slotIndex];
 
-  runPoseBtn.disabled = true;
-  exportPoseBtn.disabled = true;
-  poseProgress.classList.add('visible');
-  poseStage.classList.add('visible');
-  poseProgressText.textContent = 'モデルを読み込み中…';
+ if(!slot)return;
 
-  let landmarker;
-  try {
-    landmarker = await getHolisticLandmarker();
-  } catch (err) {
-    console.error(err);
-    poseProgressText.textContent = 'モデルの読み込みに失敗しました。ネットワーク設定をご確認ください。';
-    runPoseBtn.disabled = false;
-    return;
-  }
+ const runPoseBtn=
+  document.getElementById(
+   'runPoseBtn'
+  );
 
-  const video = document.createElement('video');
-  video.src = URL.createObjectURL(slot.file);
-  video.muted = true;
-  video.playsInline = true;
-  await new Promise((res) => { video.onloadedmetadata = res; });
+ const exportPoseBtn=
+  document.getElementById(
+   'exportPoseBtn'
+  );
 
-  const fps = parseFloat(fpsInput.value) || 30;
-  const startTime = slot.clapTime || 0;
-  const duration = video.duration;
-  const frameInterval = 1 / fps;
-  const totalFrames = Math.max(1, Math.floor((duration - startTime) * fps));
+ const poseProgress=
+  document.getElementById(
+   'poseProgress'
+  );
 
-  poseCanvas.width = video.videoWidth;
-  poseCanvas.height = video.videoHeight;
-  const ctx = poseCanvas.getContext('2d');
+ const poseProgressText=
+  document.getElementById(
+   'poseProgressText'
+  );
 
-  const captured = [];
-  let t = startTime;
-  let frameIdx = 0;
-  let tsMs = 0;
+ const poseProgressFill=
+  document.getElementById(
+   'poseProgressFill'
+  );
 
-  while (t < duration){
-    video.currentTime = t;
-    await seekedV2(video);
+ const poseStage=
+  document.getElementById(
+   'poseStage'
+  );
 
-    tsMs += 1; // detectForVideo requires strictly increasing timestamps
-    const result = landmarker.detectForVideo(video, tsMs);
+ const poseCanvas=
+  document.getElementById(
+   'poseCanvas'
+  );
 
-    const pose = unwrapLandmarks(result.poseLandmarks);
-    const poseWorld = unwrapLandmarks(result.poseWorldLandmarks);
-    const leftHand = unwrapLandmarks(result.leftHandLandmarks);
-    const rightHand = unwrapLandmarks(result.rightHandLandmarks);
+ runPoseBtn.disabled=true;
 
-    ctx.clearRect(0, 0, poseCanvas.width, poseCanvas.height);
-    ctx.drawImage(video, 0, 0, poseCanvas.width, poseCanvas.height);
-    if (pose && window.POSE_CONNECTIONS){
-      window.drawConnectors(ctx, pose, window.POSE_CONNECTIONS, { color: '#e8604c', lineWidth: 2 });
-      window.drawLandmarks(ctx, pose, { color: '#eef0f4', radius: 2 });
-    }
-    if (leftHand && window.HAND_CONNECTIONS){
-      window.drawConnectors(ctx, leftHand, window.HAND_CONNECTIONS, { color: '#3d5a99', lineWidth: 1.5 });
-    }
-    if (rightHand && window.HAND_CONNECTIONS){
-      window.drawConnectors(ctx, rightHand, window.HAND_CONNECTIONS, { color: '#3d5a99', lineWidth: 1.5 });
-    }
+ exportPoseBtn.disabled=true;
 
-    captured.push({
-      frame: frameIdx,
-      t: Number((t - startTime).toFixed(4)),
-      pose: stripLm(pose),
-      poseWorld: stripLm(poseWorld),
-      leftHand: stripLm(leftHand),
-      rightHand: stripLm(rightHand),
-    });
+ poseProgress.classList.add('visible');
 
-    frameIdx++;
-    t += frameInterval;
-    const pct = Math.min(100, Math.round((frameIdx / totalFrames) * 100));
-    poseProgressFill.style.width = pct + '%';
-    poseProgressText.textContent = `フレーム ${frameIdx}/${totalFrames} 処理中(${pct}%)`;
-  }
+ poseStage.classList.add('visible');
 
-  state.poseData = {
-    slotIndex,
-    sourceFilename: slot.file.name,
-    frameRate: fps,
-    startTimeSeconds: startTime,
-    frames: captured,
+ poseProgressText.textContent=
+  'モデルを読み込み中…';
+
+ let landmarker;
+
+ try{
+
+  landmarker=
+   await getHolisticLandmarker();
+
+ }catch(err){
+
+  console.error(err);
+
+  poseProgressText.textContent=
+   'モデルの読み込みに失敗しました。';
+
+  runPoseBtn.disabled=false;
+
+  return;
+ }
+
+ const video=document.createElement('video');
+
+ const videoUrl=
+  URL.createObjectURL(slot.file);
+
+ video.src=videoUrl;
+
+ video.muted=true;
+ video.playsInline=true;
+ video.preload='auto';
+
+ await new Promise((resolve,reject)=>{
+
+  video.onloadedmetadata=resolve;
+
+  video.onerror=()=>{
+   reject(
+    new Error('動画の読み込みに失敗しました')
+   );
   };
+ });
 
-  const withWorld = captured.filter((f) => f.poseWorld).length;
-  poseProgressText.textContent = `完了 — ${captured.length}フレームを抽出しました(実寸3D座標: ${withWorld}/${captured.length}フレーム)`;
-  runPoseBtn.disabled = false;
-  exportPoseBtn.disabled = false;
-  window.dispatchEvent(new CustomEvent('pose-data-ready'));
+ const fps=
+  parseFloat(
+   document.getElementById('fpsInput').value
+  )||30;
+
+ const startTime=
+  Number.isFinite(slot.clapTime)
+  ?slot.clapTime
+  :0;
+
+ const duration=video.duration;
+
+ const frameInterval=1/fps;
+
+ const totalFrames=
+  Math.max(
+   1,
+   Math.ceil(
+    Math.max(
+     0,
+     duration-startTime
+    )*fps
+   )
+  );
+
+ poseCanvas.width=video.videoWidth;
+ poseCanvas.height=video.videoHeight;
+
+ const ctx=
+  poseCanvas.getContext('2d');
+
+ const captured=[];
+
+ let frameIdx=0;
+
+ try{
+
+  while(
+   frameIdx<totalFrames
+  ){
+
+   const t=
+    Math.min(
+     duration-0.001,
+     startTime+
+     frameIdx*frameInterval
+    );
+
+   if(t<startTime||t>=duration){
+    break;
+   }
+
+   await seekTo(video,t);
+
+   /*
+    * 重要:
+    * detectForVideo() の timestamp は
+    * 単純な +1 ではなく、
+    * 動画上の実時間をmsで渡す。
+    */
+   const tsMs=
+    Math.max(
+     0,
+     Math.round(t*1000)
+    );
+
+   const result=
+    landmarker.detectForVideo(
+     video,
+     tsMs
+    );
+
+   const pose=
+    unwrapLandmarks(
+     result.poseLandmarks
+    );
+
+   const poseWorld=
+    unwrapLandmarks(
+     result.poseWorldLandmarks
+    );
+
+   const leftHand=
+    unwrapLandmarks(
+     result.leftHandLandmarks
+    );
+
+   const rightHand=
+    unwrapLandmarks(
+     result.rightHandLandmarks
+    );
+
+   ctx.clearRect(
+    0,
+    0,
+    poseCanvas.width,
+    poseCanvas.height
+   );
+
+   ctx.drawImage(
+    video,
+    0,
+    0,
+    poseCanvas.width,
+    poseCanvas.height
+   );
+
+   if(
+    pose&&
+    window.POSE_CONNECTIONS
+   ){
+
+    window.drawConnectors(
+     ctx,
+     pose,
+     window.POSE_CONNECTIONS,
+     {
+      color:'#e8604c',
+      lineWidth:2
+     }
+    );
+
+    window.drawLandmarks(
+     ctx,
+     pose,
+     {
+      color:'#eef0f4',
+      radius:2
+     }
+    );
+   }
+
+   if(
+    leftHand&&
+    window.HAND_CONNECTIONS
+   ){
+
+    window.drawConnectors(
+     ctx,
+     leftHand,
+     window.HAND_CONNECTIONS,
+     {
+      color:'#3d5a99',
+      lineWidth:1.5
+     }
+    );
+   }
+
+   if(
+    rightHand&&
+    window.HAND_CONNECTIONS
+   ){
+
+    window.drawConnectors(
+     ctx,
+     rightHand,
+     window.HAND_CONNECTIONS,
+     {
+      color:'#3d5a99',
+      lineWidth:1.5
+     }
+    );
+   }
+
+   captured.push({
+
+    frame:frameIdx,
+
+    t:Number(
+     (
+      frameIdx*frameInterval
+     ).toFixed(4)
+    ),
+
+    pose:stripLm(pose),
+
+    poseWorld:
+     stripLm(poseWorld),
+
+    leftHand:
+     stripLm(leftHand),
+
+    rightHand:
+     stripLm(rightHand)
+   });
+
+   frameIdx++;
+
+   const pct=
+    Math.min(
+     100,
+     Math.round(
+      (frameIdx/totalFrames)*100
+     )
+    );
+
+   poseProgressFill.style.width=
+    pct+'%';
+
+   poseProgressText.textContent=
+    `フレーム ${frameIdx}/${totalFrames} 処理中(${pct}%)`;
+
+   await new Promise(r=>setTimeout(r,0));
+  }
+
+ }finally{
+
+  URL.revokeObjectURL(videoUrl);
+ }
+
+ state.poseData={
+
+  slotIndex,
+
+  sourceFilename:slot.file.name,
+
+  frameRate:fps,
+
+  startTimeSeconds:startTime,
+
+  frames:captured
+ };
+
+ const withWorld=
+  captured.filter(
+   f=>Array.isArray(f.poseWorld)
+  ).length;
+
+ poseProgressText.textContent=
+  `完了 — ${captured.length}フレームを抽出しました`+
+  `(実寸3D座標: ${withWorld}/${captured.length}フレーム)`;
+
+ runPoseBtn.disabled=false;
+
+ exportPoseBtn.disabled=
+  captured.length===0;
+
+ window.dispatchEvent(
+  new CustomEvent(
+   'pose-data-ready'
+  )
+ );
 };
+
 </script>
+
 
 <script type="module">
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 
-const vrmSectionLabel = document.getElementById('vrmSectionLabel');
-const vrmPanel = document.getElementById('vrmPanel');
-const vrmFileInput = document.getElementById('vrmFileInput');
-const poseJsonFileInput = document.getElementById('poseJsonFileInput');
-const retargetBtn = document.getElementById('retargetBtn');
-const vrmProgress = document.getElementById('vrmProgress');
-const vrmProgressText = document.getElementById('vrmProgressText');
-const vrmProgressFill = document.getElementById('vrmProgressFill');
-const vrmPlaybackControls = document.getElementById('vrmPlaybackControls');
-const vrmPlayBtn = document.getElementById('vrmPlayBtn');
-const vrmPauseBtn = document.getElementById('vrmPauseBtn');
-const vrmExportBtn = document.getElementById('vrmExportBtn');
-const vrmViewport = document.getElementById('vrmViewport');
-const vrmHint = document.getElementById('vrmHint');
+import*as THREE from'three';
 
-const local = { vrm: null, clip: null, mixer: null, action: null, renderer: null, scene: null, camera: null };
+import{
+ GLTFLoader
+}from'three/addons/loaders/GLTFLoader.js';
 
-// reveal this section once pose data exists
-window.addEventListener('pose-data-ready', () => {
-  vrmSectionLabel.style.display = 'block';
-  vrmPanel.style.display = 'block';
+import{
+ GLTFExporter
+}from'three/addons/exporters/GLTFExporter.js';
+
+import*as SkeletonUtils
+from'three/addons/utils/SkeletonUtils.js';
+
+import{
+ VRMLoaderPlugin,
+ VRMUtils
+}from'@pixiv/three-vrm';
+
+
+const vrmSectionLabel=
+ document.getElementById(
+  'vrmSectionLabel'
+ );
+
+const vrmPanel=
+ document.getElementById(
+  'vrmPanel'
+ );
+
+const vrmFileInput=
+ document.getElementById(
+  'vrmFileInput'
+ );
+
+const poseJsonFileInput=
+ document.getElementById(
+  'poseJsonFileInput'
+ );
+
+const retargetBtn=
+ document.getElementById(
+  'retargetBtn'
+ );
+
+const vrmProgress=
+ document.getElementById(
+  'vrmProgress'
+ );
+
+const vrmProgressText=
+ document.getElementById(
+  'vrmProgressText'
+ );
+
+const vrmProgressFill=
+ document.getElementById(
+  'vrmProgressFill'
+ );
+
+const vrmPlaybackControls=
+ document.getElementById(
+  'vrmPlaybackControls'
+ );
+
+const vrmPlayBtn=
+ document.getElementById(
+  'vrmPlayBtn'
+ );
+
+const vrmPauseBtn=
+ document.getElementById(
+  'vrmPauseBtn'
+ );
+
+const vrmExportBtn=
+ document.getElementById(
+  'vrmExportBtn'
+ );
+
+const vrmViewport=
+ document.getElementById(
+  'vrmViewport'
+ );
+
+const vrmHint=
+ document.getElementById(
+  'vrmHint'
+ );
+
+
+const local={
+ vrm:null,
+ clip:null,
+ mixer:null,
+ action:null,
+ renderer:null,
+ scene:null,
+ camera:null,
+
+ /*
+  * V3.1
+  *
+  * Hipsの位置を固定するための基準値。
+  */
+ hipsBasePosition:null,
+
+ contextLost:false
+};
+
+
+window.addEventListener(
+ 'pose-data-ready',
+ ()=>{
+  vrmSectionLabel.style.display='block';
+
+  vrmPanel.style.display='block';
+
   refreshRetargetReady();
-});
+ }
+);
+
 
 function refreshRetargetReady(){
-  const poseData = window.appState.poseData;
-  const hasFrames = !!(poseData && poseData.frames && poseData.frames.length > 0);
-  const hasWorld = hasFrames && poseData.frames.some((f) => f.poseWorld);
-  retargetBtn.disabled = !(local.vrm && hasFrames && hasWorld);
+
+ const poseData=
+  window.appState.poseData;
+
+ const hasFrames=
+  !!(
+   poseData&&
+   poseData.frames&&
+   poseData.frames.length>0
+  );
+
+ const worldCount=
+  hasFrames
+  ?poseData.frames.filter(
+    f=>Array.isArray(f.poseWorld)
+   ).length
+  :0;
+
+ /*
+  * 少なくとも1フレームだけではなく、
+  * 全体の大部分にworld座標が存在することを要求。
+  */
+ const hasWorld=
+  hasFrames&&
+  worldCount>=
+   Math.max(
+    1,
+    Math.floor(
+     poseData.frames.length*.8
+    )
+   );
+
+ retargetBtn.disabled=
+  !(local.vrm&&hasFrames&&hasWorld);
 }
 
-// --- three.js viewport setup -----------------------------------------
 
 function ensureViewport(){
-  if (local.renderer) return;
-  vrmViewport.classList.add('visible');
-  const width = vrmViewport.clientWidth;
-  const height = vrmViewport.clientHeight;
 
-  local.scene = new THREE.Scene();
-  local.camera = new THREE.PerspectiveCamera(30, width / height, 0.1, 20);
-  local.camera.position.set(0, 1.3, 3.2);
+ if(local.renderer)return;
 
-  local.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  local.renderer.setSize(width, height);
-  local.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  vrmViewport.appendChild(local.renderer.domElement);
+ vrmViewport.classList.add('visible');
 
-  // WebGL contexts can be lost under GPU/memory pressure (this scene loads a
-  // large VRM alongside MediaPipe + Three.js). Without handling this, the
-  // canvas silently goes black/blank and never recovers. We detect loss,
-  // pause our own render loop so it doesn't spam errors, and rebuild the
-  // context + reattach the current scene/camera once it's restored.
-  local.renderer.domElement.addEventListener('webglcontextlost', (e) => {
-    e.preventDefault();
-    local.contextLost = true;
-    console.warn('WebGL context lost — will attempt to recover once restored.');
+ const width=
+  vrmViewport.clientWidth;
+
+ const height=
+  vrmViewport.clientHeight;
+
+ local.scene=
+  new THREE.Scene();
+
+ local.camera=
+  new THREE.PerspectiveCamera(
+   30,
+   width/height,
+   .1,
+   20
+  );
+
+ local.camera.position.set(
+  0,
+  1.3,
+  3.2
+ );
+
+ local.renderer=
+  new THREE.WebGLRenderer({
+   antialias:true,
+   alpha:true
   });
-  local.renderer.domElement.addEventListener('webglcontextrestored', () => {
-    local.contextLost = false;
-    const w = vrmViewport.clientWidth, h = vrmViewport.clientHeight;
-    if (w && h){
-      local.camera.aspect = w / h;
-      local.camera.updateProjectionMatrix();
-      local.renderer.setSize(w, h);
-    }
-  });
 
-  const controls = new OrbitControls(local.camera, local.renderer.domElement);
-  controls.target.set(0, 1.0, 0);
-  controls.update();
+ local.renderer.setSize(
+  width,
+  height
+ );
 
-  const light = new THREE.DirectionalLight(0xffffff, 1.4);
-  light.position.set(1, 1, 1);
-  local.scene.add(light);
-  local.scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+ local.renderer.setPixelRatio(
+  Math.min(
+   window.devicePixelRatio,
+   2
+  )
+ );
 
-  const clock = new THREE.Clock();
-  function tick(){
-    requestAnimationFrame(tick);
-    if (local.contextLost) return; // don't render/update against a dead GL context
-    const delta = clock.getDelta();
-    if (local.mixer){
-      // The baked clip now drives the raw (skinned) bones directly, so we
-      // deliberately skip vrm.update()'s humanoid normalized->raw sync here —
-      // it would immediately overwrite what the mixer just set. The other
-      // VRM subsystems (spring bones, look-at, expressions) still run.
-      local.mixer.update(delta);
-      local.vrm?.springBoneManager?.update(delta);
-      local.vrm?.lookAt?.update(delta);
-      local.vrm?.expressionManager?.update(delta);
-    } else if (local.vrm){
-      local.vrm.update(delta);
-    }
-    controls.update();
-    local.renderer.render(local.scene, local.camera);
+ vrmViewport.appendChild(
+  local.renderer.domElement
+ );
+
+ local.renderer.domElement.addEventListener(
+  'webglcontextlost',
+  e=>{
+   e.preventDefault();
+
+   local.contextLost=true;
+
+   console.warn(
+    'WebGL context lost'
+   );
   }
-  tick();
+ );
 
-  // A ResizeObserver on the container (rather than only window 'resize')
-  // catches layout changes that don't fire a window resize event — e.g. a
-  // mobile browser's address bar hiding/showing on scroll, which changes
-  // the viewport's actual size without a matching 'resize' event.
-  const resizeObserver = new ResizeObserver((entries) => {
-    for (const entry of entries){
-      const w = Math.round(entry.contentRect.width);
-      const h = Math.round(entry.contentRect.height);
-      if (!w || !h) continue; // a transient 0-size layout pass — ignore, don't break the renderer
-      local.camera.aspect = w / h;
-      local.camera.updateProjectionMatrix();
-      local.renderer.setSize(w, h);
+ local.renderer.domElement.addEventListener(
+  'webglcontextrestored',
+  ()=>{
+   local.contextLost=false;
+
+   const w=
+    vrmViewport.clientWidth;
+
+   const h=
+    vrmViewport.clientHeight;
+
+   if(w&&h){
+
+    local.camera.aspect=w/h;
+
+    local.camera.updateProjectionMatrix();
+
+    local.renderer.setSize(
+     w,
+     h
+    );
+   }
+  }
+ );
+
+ const controls=
+  new(
+   THREE
+  ).OrbitControls
+  ?null
+  :null;
+
+ /*
+  * OrbitControlsはimport済みではないため、
+  * ここでは従来同様のカメラ固定表示とする。
+  */
+
+ const light=
+  new THREE.DirectionalLight(
+   0xffffff,
+   1.4
+  );
+
+ light.position.set(
+  1,
+  1,
+  1
+ );
+
+ local.scene.add(light);
+
+ local.scene.add(
+  new THREE.AmbientLight(
+   0xffffff,
+   .6
+  )
+ );
+
+ const clock=
+  new THREE.Clock();
+
+ function tick(){
+
+  requestAnimationFrame(tick);
+
+  if(local.contextLost)return;
+
+  const delta=
+   clock.getDelta();
+
+  if(local.mixer){
+
+   local.mixer.update(delta);
+
+   local.vrm
+    ?.springBoneManager
+    ?.update(delta);
+
+   local.vrm
+    ?.lookAt
+    ?.update(delta);
+
+   local.vrm
+    ?.expressionManager
+    ?.update(delta);
+
+  }else if(local.vrm){
+
+   local.vrm.update(delta);
+  }
+
+  local.renderer.render(
+   local.scene,
+   local.camera
+  );
+ }
+
+ tick();
+
+ const resizeObserver=
+  new ResizeObserver(
+   entries=>{
+
+    for(const entry of entries){
+
+     const w=
+      Math.round(
+       entry.contentRect.width
+      );
+
+     const h=
+      Math.round(
+       entry.contentRect.height
+      );
+
+     if(!w||!h)continue;
+
+     local.camera.aspect=w/h;
+
+     local.camera.updateProjectionMatrix();
+
+     local.renderer.setSize(
+      w,
+      h
+     );
     }
-  });
-  resizeObserver.observe(vrmViewport);
+   }
+  );
+
+ resizeObserver.observe(
+  vrmViewport
+ );
 }
 
-// --- loading VRM -------------------------------------------------------
 
-vrmFileInput.addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  vrmHint.textContent = `読み込み中: ${file.name}`;
+vrmFileInput.addEventListener(
+ 'change',
+ async e=>{
+
+  const file=e.target.files[0];
+
+  if(!file)return;
+
+  vrmHint.textContent=
+   `読み込み中: ${file.name}`;
+
   ensureViewport();
 
-  const loader = new GLTFLoader();
-  loader.register((parser) => new VRMLoaderPlugin(parser));
+  const loader=
+   new GLTFLoader();
 
-  const url = URL.createObjectURL(file);
-  loader.load(url, (gltf) => {
-    const vrm = gltf.userData.vrm;
-    if (local.vrm) local.scene.remove(local.vrm.scene);
-    VRMUtils.removeUnnecessaryVertices(gltf.scene);
-    VRMUtils.removeUnnecessaryJoints(gltf.scene);
-    if (vrm.meta && (vrm.meta.metaVersion === '0' || vrm.meta.specVersion === undefined)) {
-      VRMUtils.rotateVRM0(vrm);
+  loader.register(
+   parser=>
+    new VRMLoaderPlugin(parser)
+  );
+
+  const url=
+   URL.createObjectURL(file);
+
+  loader.load(
+   url,
+
+   gltf=>{
+
+    URL.revokeObjectURL(url);
+
+    const vrm=
+     gltf.userData.vrm;
+
+    if(!vrm){
+
+     vrmHint.textContent=
+      'VRMとして読み込めませんでした';
+
+     return;
     }
-    local.vrm = vrm;
-    local.scene.add(vrm.scene);
-    vrmHint.textContent = `読み込み完了: ${file.name}`;
+
+    if(local.vrm){
+
+     local.scene.remove(
+      local.vrm.scene
+     );
+    }
+
+    /*
+     * 前のアニメーションを完全に解除。
+     */
+    local.clip=null;
+
+    if(local.mixer){
+
+     local.mixer.stopAllAction();
+
+     local.mixer=null;
+    }
+
+    local.action=null;
+
+    VRMUtils.removeUnnecessaryVertices(
+     gltf.scene
+    );
+
+    VRMUtils.removeUnnecessaryJoints(
+     gltf.scene
+    );
+
+    if(
+     vrm.meta&&
+     (
+      vrm.meta.metaVersion==='0'||
+      vrm.meta.specVersion===undefined
+     )
+    ){
+
+     VRMUtils.rotateVRM0(vrm);
+    }
+
+    local.vrm=vrm;
+
+    local.scene.add(
+     vrm.scene
+    );
+
+    /*
+     * V3.1
+     * Hipsの初期位置を保存。
+     * 以後の屈伸ではこの位置を基準にする。
+     */
+    const hips=
+     vrm.humanoid
+      ?.getNormalizedBoneNode(
+       'hips'
+      );
+
+    if(hips){
+
+     local.hipsBasePosition=
+      hips.position.clone();
+    }else{
+
+     local.hipsBasePosition=
+      new THREE.Vector3(
+       0,
+       0,
+       0
+      );
+    }
+
+    vrmHint.textContent=
+     `読み込み完了: ${file.name}`;
+
     refreshRetargetReady();
-  }, undefined, (err) => {
+   },
+
+   undefined,
+
+   err=>{
+
+    URL.revokeObjectURL(url);
+
     console.error(err);
-    vrmHint.textContent = '読み込みに失敗しました';
-  });
-});
 
-poseJsonFileInput.addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  try {
-    const text = await file.text();
-    const data = JSON.parse(text);
-    const frameCount = data.frames?.length ?? 0;
+    vrmHint.textContent=
+     '読み込みに失敗しました';
+   }
+  );
+ }
+);
 
-    if (frameCount === 0){
-      vrmProgressText.textContent = `このJSONには骨格データ(frames)が含まれていません。ステップ3で書き出した pose-〇〇.json を選択してください(選択したファイル: ${file.name})。`;
-      vrmProgress.classList.add('visible');
-      window.appState.poseData = null;
-      refreshRetargetReady();
-      return;
-    }
 
-    const hasWorld = data.frames.some((f) => f.poseWorld);
-    if (!hasWorld){
-      vrmProgressText.textContent = `⚠ このJSON(${frameCount}フレーム)には実寸3D座標(poseWorld)が含まれていないため、リターゲティングを実行できません。ステップ3を再実行して新しいJSONを作成してください(古い形式のデータでは腰の位置が壊れ、アバターが画面外に飛ぶ原因になります)。`;
-      vrmProgress.classList.add('visible');
-      window.appState.poseData = null; // don't let a stale, broken dataset proceed
-      refreshRetargetReady();
-      return;
-    }
+poseJsonFileInput.addEventListener(
+ 'change',
+ async e=>{
 
-    window.appState.poseData = data;
-    vrmProgressText.textContent = `骨格データを読み込みました(${frameCount}フレーム)`;
-    vrmProgress.classList.add('visible');
-    vrmSectionLabel.style.display = 'block';
-    vrmPanel.style.display = 'block';
+  const file=e.target.files[0];
+
+  if(!file)return;
+
+  try{
+
+   const text=await file.text();
+
+   const data=
+    JSON.parse(text);
+
+   const frameCount=
+    data.frames?.length??0;
+
+   if(frameCount===0){
+
+    vrmProgressText.textContent=
+     'このJSONには骨格データがありません。';
+
+    vrmProgress.classList.add(
+     'visible'
+    );
+
+    window.appState.poseData=null;
+
     refreshRetargetReady();
-  } catch (err) {
-    console.error(err);
-    vrmProgressText.textContent = 'JSONの読み込みに失敗しました';
+
+    return;
+   }
+
+   const worldCount=
+    data.frames.filter(
+     f=>Array.isArray(f.poseWorld)
+    ).length;
+
+   const requiredWorld=
+    Math.max(
+     1,
+     Math.floor(frameCount*.8)
+    );
+
+   if(worldCount<requiredWorld){
+
+    vrmProgressText.textContent=
+     `⚠ 実寸3D座標が不足しています `+
+     `(${worldCount}/${frameCount})。`;
+
+    vrmProgress.classList.add(
+     'visible'
+    );
+
+    window.appState.poseData=null;
+
+    refreshRetargetReady();
+
+    return;
+   }
+
+   window.appState.poseData=data;
+
+   vrmProgressText.textContent=
+    `骨格データを読み込みました`+
+    `(${frameCount}フレーム)`;
+
+   vrmProgress.classList.add(
+    'visible'
+   );
+
+   vrmSectionLabel.style.display='block';
+
+   vrmPanel.style.display='block';
+
+   refreshRetargetReady();
+
+  }catch(err){
+
+   console.error(err);
+
+   vrmProgressText.textContent=
+    'JSONの読み込みに失敗しました';
   }
-});
+ }
+);
 
-// --- Kalidokit retargeting ----------------------------------------------
 
 function toVRMBoneName(name){
-  return name.charAt(0).toLowerCase() + name.slice(1);
+
+ return name.charAt(0).toLowerCase()+
+  name.slice(1);
 }
 
-function rigRotation(vrm, kalidokitName, rotation, dampener = 1, lerpFactor = 0.4){
-  const bone = vrm.humanoid?.getNormalizedBoneNode(toVRMBoneName(kalidokitName));
-  if (!bone || !rotation) return;
-  const euler = new THREE.Euler(
-    (rotation.x || 0) * dampener,
-    (rotation.y || 0) * dampener,
-    (rotation.z || 0) * dampener,
-    'XYZ'
+
+function rigRotation(
+ vrm,
+ kalidokitName,
+ rotation,
+ dampener=1,
+ lerpFactor=1
+){
+
+ const bone=
+  vrm.humanoid
+   ?.getNormalizedBoneNode(
+    toVRMBoneName(kalidokitName)
+   );
+
+ if(!bone||!rotation)return;
+
+ const euler=
+  new THREE.Euler(
+   (rotation.x||0)*dampener,
+   (rotation.y||0)*dampener,
+   (rotation.z||0)*dampener,
+   'XYZ'
   );
-  const quat = new THREE.Quaternion().setFromEuler(euler);
-  bone.quaternion.slerp(quat, lerpFactor);
+
+ const quat=
+  new THREE.Quaternion()
+   .setFromEuler(euler);
+
+ /*
+  * ベイク時に前フレームの姿勢が残ると
+  * 足や膝に余計なドリフトが発生するので、
+  * V3.1では基本的に現在フレームを直接適用する。
+  */
+ bone.quaternion.copy(quat);
 }
 
-function rigHips(vrm, hipsRig, lerpFactor = 0.85){
-  const bone = vrm.humanoid?.getNormalizedBoneNode('hips');
-  if (!bone || !hipsRig) return;
-  const euler = new THREE.Euler(hipsRig.rotation.x, hipsRig.rotation.y, hipsRig.rotation.z, 'XYZ');
-  bone.quaternion.slerp(new THREE.Quaternion().setFromEuler(euler), lerpFactor);
-  // x and z are mirrored between MediaPipe's camera-facing space and the VRM's
-  // forward-facing (-Z) space, so both must be inverted, not just z.
-  // Clamp to a sane range as a safety net: a single noisy/invalid frame
-  // (e.g. from malformed input data) should never send the avatar flying
-  // off-screen — cap displacement to roughly the size of the recording space.
-  const clamp = (v, lim) => Math.max(-lim, Math.min(lim, v));
-  const target = new THREE.Vector3(
-    clamp(-hipsRig.position.x, 2),
-    clamp(hipsRig.position.y + 1, 2.5),
-    clamp(-hipsRig.position.z, 2)
+
+/*
+ * ============================================================
+ * V3.1 最大の修正箇所
+ * ============================================================
+ *
+ * 旧:
+ *
+ *   hipsRig.position.y + 1
+ *
+ * として、MediaPipeの絶対Y座標をVRM Hipsへ直接入れていた。
+ *
+ * これを廃止。
+ *
+ * Hipsの「回転」はキャプチャするが、
+ * Hipsの「上下位置」は固定する。
+ *
+ * これにより、
+ *
+ *     屈伸
+ *       ↓
+ *     Hipsが勝手に上下
+ *       ↓
+ *     骨格全体が持ち上がる
+ *       ↓
+ *     足が空中に浮く
+ *
+ * という問題を止める。
+ *
+ * X/Zについても絶対座標を直接使わない。
+ */
+function rigHips(
+ vrm,
+ hipsRig
+){
+
+ const bone=
+  vrm.humanoid
+   ?.getNormalizedBoneNode(
+    'hips'
+   );
+
+ if(!bone||!hipsRig)return;
+
+ const euler=
+  new THREE.Euler(
+   hipsRig.rotation.x||0,
+   hipsRig.rotation.y||0,
+   hipsRig.rotation.z||0,
+   'XYZ'
   );
-  if (Number.isFinite(target.x) && Number.isFinite(target.y) && Number.isFinite(target.z)){
-    bone.position.lerp(target, lerpFactor);
-  }
-}
 
-function rigHandWrist(vrm, side, poseRig, handLandmarks, lerpFactor = 0.7){
-  const wristKey = side + 'Hand';
-  const bone = vrm.humanoid?.getNormalizedBoneNode(toVRMBoneName(wristKey));
-  if (!bone || !poseRig || !poseRig[wristKey]) return;
-  const handRig = handLandmarks ? Kalidokit.Hand.solve(handLandmarks, side) : null;
-  const wristRotFromHand = handRig ? handRig[side + 'Wrist'] : null;
-  const euler = new THREE.Euler(
-    wristRotFromHand ? wristRotFromHand.x : 0,
-    wristRotFromHand ? wristRotFromHand.y : 0,
-    poseRig[wristKey].z || 0,
-    'XYZ'
+ const quat=
+  new THREE.Quaternion()
+   .setFromEuler(euler);
+
+ bone.quaternion.copy(quat);
+
+ /*
+  * Hips位置を固定。
+  *
+  * ここがV3.1の重要ポイント。
+  */
+ if(local.hipsBasePosition){
+
+  bone.position.copy(
+   local.hipsBasePosition
   );
-  bone.quaternion.slerp(new THREE.Quaternion().setFromEuler(euler), lerpFactor);
+
+ }else{
+
+  bone.position.set(
+   0,
+   0,
+   0
+  );
+ }
 }
 
-const FINGER_BONES = ['ThumbProximal','ThumbIntermediate','ThumbDistal',
-  'IndexProximal','IndexIntermediate','IndexDistal',
-  'MiddleProximal','MiddleIntermediate','MiddleDistal',
-  'RingProximal','RingIntermediate','RingDistal',
-  'LittleProximal','LittleIntermediate','LittleDistal'];
 
-function rigHandFingers(vrm, handLandmarks, side){
-  if (!handLandmarks) return;
-  const rig = Kalidokit.Hand.solve(handLandmarks, side);
-  if (!rig) return;
-  FINGER_BONES.forEach((b) => {
-    rigRotation(vrm, side + b, rig[side + b], 1, 0.6);
-  });
+function rigHandWrist(
+ vrm,
+ side,
+ poseRig,
+ handLandmarks
+){
+
+ const wristKey=
+  side+'Hand';
+
+ const bone=
+  vrm.humanoid
+   ?.getNormalizedBoneNode(
+    toVRMBoneName(wristKey)
+   );
+
+ if(
+  !bone||
+  !poseRig||
+  !poseRig[wristKey]
+ ){
+  return;
+ }
+
+ const handRig=
+  handLandmarks
+  ?Kalidokit.Hand.solve(
+    handLandmarks,
+    side
+   )
+  :null;
+
+ const wristRotFromHand=
+  handRig
+  ?handRig[side+'Wrist']
+  :null;
+
+ const euler=
+  new THREE.Euler(
+   wristRotFromHand
+    ?wristRotFromHand.x
+    :0,
+
+   wristRotFromHand
+    ?wristRotFromHand.y
+    :0,
+
+   poseRig[wristKey].z||0,
+
+   'XYZ'
+  );
+
+ bone.quaternion.copy(
+  new THREE.Quaternion()
+   .setFromEuler(euler)
+ );
 }
 
-// MediaPipe Pose landmark indices used for per-limb visibility gating
-const LM = { leftHip: 23, rightHip: 24, leftKnee: 25, rightKnee: 26, leftAnkle: 27, rightAnkle: 28, leftFootIndex: 31, rightFootIndex: 32 };
-const VISIBILITY_THRESHOLD = 0.5;
 
-// NOTE: an earlier version of this function swapped left/right landmark pairs,
-// on the assumption that MediaPipe's left/right labels are mirrored (as they
-// are for a selfie-style webcam feed). Measuring the baked animation against
-// the source video showed that swap flips the body's front/back facing by
-// ~180 degrees (Kalidokit derives torso yaw from the left->right hip/shoulder
-// vector, so swapping the pair negates it). For this non-mirrored, third-person
-// recording, MediaPipe's raw labels already match the dancer's true anatomy,
-// so no swap is applied here.
+const FINGER_BONES=[
+ 'ThumbProximal',
+ 'ThumbIntermediate',
+ 'ThumbDistal',
 
-function avgVisibility(landmarks, indices){
-  if (!landmarks) return 0;
-  const vals = indices.map((i) => landmarks[i]?.visibility ?? 0);
-  return vals.reduce((a, b) => a + b, 0) / vals.length;
+ 'IndexProximal',
+ 'IndexIntermediate',
+ 'IndexDistal',
+
+ 'MiddleProximal',
+ 'MiddleIntermediate',
+ 'MiddleDistal',
+
+ 'RingProximal',
+ 'RingIntermediate',
+ 'RingDistal',
+
+ 'LittleProximal',
+ 'LittleIntermediate',
+ 'LittleDistal'
+];
+
+
+function rigHandFingers(
+ vrm,
+ handLandmarks,
+ side
+){
+
+ if(!handLandmarks)return;
+
+ const rig=
+  Kalidokit.Hand.solve(
+   handLandmarks,
+   side
+  );
+
+ if(!rig)return;
+
+ FINGER_BONES.forEach(b=>{
+
+  rigRotation(
+   vrm,
+   side+b,
+   rig[side+b],
+   1,
+   1
+  );
+ });
 }
 
-function applyFrameToVRM(vrm, frame){
-  if (!frame || !frame.pose) return;
-  const poseLm = frame.pose;
-  const world3d = frame.poseWorld || poseLm; // fallback for older JSON without world landmarks
-  const trueLeftHand = frame.leftHand;
-  const trueRightHand = frame.rightHand;
 
-  // enableLegs is required for Kalidokit to compute leg rotations at all —
-  // without it, leg output is unreliable/absent.
-  const poseRig = Kalidokit.Pose.solve(world3d, poseLm, { runtime: 'mediapipe', enableLegs: true });
-  if (!poseRig) return;
-  rigHips(vrm, poseRig.Hips);
-  // Torso and arms carry comparatively little noise (confirmed by measuring
-  // frame-to-frame jitter against the baked output), so they use a much
-  // lighter smoothing factor than legs/fingers — enough to track fast
-  // twisting motion without lagging a frame or two behind, which was
-  // previously causing the arms to visibly clip into the torso as it
-  // rotated ahead of them.
-  rigRotation(vrm, 'Chest', poseRig.Spine, 0.25, 0.75);
-  rigRotation(vrm, 'Spine', poseRig.Spine, 0.45, 0.75);
-  rigRotation(vrm, 'LeftUpperArm', poseRig.LeftUpperArm, 1, 0.8);
-  rigRotation(vrm, 'LeftLowerArm', poseRig.LeftLowerArm, 1, 0.8);
-  rigRotation(vrm, 'RightUpperArm', poseRig.RightUpperArm, 1, 0.8);
-  rigRotation(vrm, 'RightLowerArm', poseRig.RightLowerArm, 1, 0.8);
+const LM={
+ leftHip:23,
+ rightHip:24,
+ leftKnee:25,
+ rightKnee:26,
+ leftAnkle:27,
+ rightAnkle:28,
+ leftFootIndex:31,
+ rightFootIndex:32
+};
 
-  // Legs/feet are the least reliable part of a single-camera estimate (frequent
-  // self-occlusion). Skip updating a limb on frames where MediaPipe's own
-  // confidence for its landmarks is low, rather than applying noisy values —
-  // this holds the last good pose instead of jittering toward garbage.
-  const leftLegVis = avgVisibility(poseLm, [LM.leftHip, LM.leftKnee, LM.leftAnkle]);
-  const rightLegVis = avgVisibility(poseLm, [LM.rightHip, LM.rightKnee, LM.rightAnkle]);
-  if (leftLegVis > VISIBILITY_THRESHOLD){
-    rigRotation(vrm, 'LeftUpperLeg', poseRig.LeftUpperLeg, 1, 0.45);
-    rigRotation(vrm, 'LeftLowerLeg', poseRig.LeftLowerLeg, 1, 0.45);
-    if (poseRig.LeftFoot) rigRotation(vrm, 'LeftFoot', poseRig.LeftFoot, 1, 0.45);
+const VISIBILITY_THRESHOLD=.5;
+
+
+function avgVisibility(
+ landmarks,
+ indices
+){
+
+ if(!landmarks)return 0;
+
+ const vals=
+  indices.map(
+   i=>landmarks[i]?.visibility??0
+  );
+
+ return vals.reduce(
+  (a,b)=>a+b,
+  0
+ )/vals.length;
+}
+
+
+function applyFrameToVRM(
+ vrm,
+ frame
+){
+
+ if(
+  !frame||
+  !frame.pose
+ ){
+  return;
+ }
+
+ const poseLm=
+  frame.pose;
+
+ const world3d=
+  frame.poseWorld||
+  poseLm;
+
+ const poseRig=
+  Kalidokit.Pose.solve(
+   world3d,
+   poseLm,
+   {
+    runtime:'mediapipe',
+    enableLegs:true
+   }
+  );
+
+ if(!poseRig)return;
+
+ /*
+  * Hips回転のみ。
+  * Hips位置はrigHips()内で固定。
+  */
+ rigHips(
+  vrm,
+  poseRig.Hips
+ );
+
+ rigRotation(
+  vrm,
+  'Chest',
+  poseRig.Spine,
+  .25,
+  1
+ );
+
+ rigRotation(
+  vrm,
+  'Spine',
+  poseRig.Spine,
+  .45,
+  1
+ );
+
+ rigRotation(
+  vrm,
+  'LeftUpperArm',
+  poseRig.LeftUpperArm,
+  1,
+  1
+ );
+
+ rigRotation(
+  vrm,
+  'LeftLowerArm',
+  poseRig.LeftLowerArm,
+  1,
+  1
+ );
+
+ rigRotation(
+  vrm,
+  'RightUpperArm',
+  poseRig.RightUpperArm,
+  1,
+  1
+ );
+
+ rigRotation(
+  vrm,
+  'RightLowerArm',
+  poseRig.RightLowerArm,
+  1,
+  1
+ );
+
+
+ const leftLegVis=
+  avgVisibility(
+   poseLm,
+   [
+    LM.leftHip,
+    LM.leftKnee,
+    LM.leftAnkle
+   ]
+  );
+
+ const rightLegVis=
+  avgVisibility(
+   poseLm,
+   [
+    LM.rightHip,
+    LM.rightKnee,
+    LM.rightAnkle
+   ]
+  );
+
+
+ if(leftLegVis>
+    VISIBILITY_THRESHOLD){
+
+  rigRotation(
+   vrm,
+   'LeftUpperLeg',
+   poseRig.LeftUpperLeg,
+   1,
+   1
+  );
+
+  rigRotation(
+   vrm,
+   'LeftLowerLeg',
+   poseRig.LeftLowerLeg,
+   1,
+   1
+  );
+
+  if(poseRig.LeftFoot){
+
+   rigRotation(
+    vrm,
+    'LeftFoot',
+    poseRig.LeftFoot,
+    1,
+    1
+   );
   }
-  if (rightLegVis > VISIBILITY_THRESHOLD){
-    rigRotation(vrm, 'RightUpperLeg', poseRig.RightUpperLeg, 1, 0.45);
-    rigRotation(vrm, 'RightLowerLeg', poseRig.RightLowerLeg, 1, 0.45);
-    if (poseRig.RightFoot) rigRotation(vrm, 'RightFoot', poseRig.RightFoot, 1, 0.45);
-  }
+ }
 
-  rigHandWrist(vrm, 'Left', poseRig, trueLeftHand);
-  rigHandWrist(vrm, 'Right', poseRig, trueRightHand);
-  rigHandFingers(vrm, trueLeftHand, 'Left');
-  rigHandFingers(vrm, trueRightHand, 'Right');
+
+ if(rightLegVis>
+    VISIBILITY_THRESHOLD){
+
+  rigRotation(
+   vrm,
+   'RightUpperLeg',
+   poseRig.RightUpperLeg,
+   1,
+   1
+  );
+
+  rigRotation(
+   vrm,
+   'RightLowerLeg',
+   poseRig.RightLowerLeg,
+   1,
+   1
+  );
+
+  if(poseRig.RightFoot){
+
+   rigRotation(
+    vrm,
+    'RightFoot',
+    poseRig.RightFoot,
+    1,
+    1
+   );
+  }
+ }
+
+
+ rigHandWrist(
+  vrm,
+  'Left',
+  poseRig,
+  frame.leftHand
+ );
+
+ rigHandWrist(
+  vrm,
+  'Right',
+  poseRig,
+  frame.rightHand
+ );
+
+ rigHandFingers(
+  vrm,
+  frame.leftHand,
+  'Left'
+ );
+
+ rigHandFingers(
+  vrm,
+  frame.rightHand,
+  'Right'
+ );
 }
 
-// bake all frames into an AnimationClip so it can be played back and exported
+
 async function retarget(){
-  const vrm = local.vrm;
-  const poseData = window.appState.poseData;
-  if (!vrm || !poseData || !poseData.frames || poseData.frames.length === 0){
-    vrmProgressText.textContent = '骨格データが読み込まれていません。';
-    vrmProgress.classList.add('visible');
-    return;
-  }
 
-  retargetBtn.disabled = true;
-  vrmProgress.classList.add('visible');
+ const vrm=local.vrm;
 
-  const trackedBoneNames = new Set();
-  const perFrameSamples = []; // { time, bones: Map(name -> {quat, pos?}) }
+ const poseData=
+  window.appState.poseData;
 
-  const frames = poseData.frames;
-  const fps = poseData.frameRate || 30;
+ if(
+  !vrm||
+  !poseData||
+  !poseData.frames||
+  !poseData.frames.length
+ ){
 
-  for (let i = 0; i < frames.length; i++){
-    applyFrameToVRM(vrm, frames[i]);
-    // Propagate normalized-bone pose onto the raw bones that are actually
-    // skinned to the mesh — without this, the baked clip would only ever
-    // drive the (invisible, export-irrelevant) normalized proxy rig.
-    vrm.humanoid.update();
+  vrmProgressText.textContent=
+   '骨格データが読み込まれていません。';
 
-    const sample = { time: frames[i].t, bones: new Map() };
-    vrm.humanoid.humanBones && Object.keys(vrm.humanoid.humanBones).forEach((boneName) => {
-      const node = vrm.humanoid.getRawBoneNode(boneName);
-      if (!node) return;
-      trackedBoneNames.add(boneName);
-      sample.bones.set(boneName, {
-        quat: node.quaternion.clone(),
-        pos: boneName === 'hips' ? node.position.clone() : null,
-      });
-    });
-    perFrameSamples.push(sample);
-
-    if (i % 15 === 0){
-      const pct = Math.round((i / frames.length) * 100);
-      vrmProgressText.textContent = `リターゲティング中 ${i}/${frames.length}(${pct}%)`;
-      vrmProgressFill.style.width = pct + '%';
-      await new Promise((r) => setTimeout(r, 0)); // yield to keep UI responsive
-    }
-  }
-
-  const tracks = [];
-  trackedBoneNames.forEach((boneName) => {
-    const node = vrm.humanoid.getRawBoneNode(boneName);
-    if (!node) return;
-    const times = [];
-    const quatValues = [];
-    perFrameSamples.forEach((s) => {
-      const b = s.bones.get(boneName);
-      if (!b) return;
-      times.push(s.time);
-      quatValues.push(b.quat.x, b.quat.y, b.quat.z, b.quat.w);
-    });
-    if (times.length){
-      tracks.push(new THREE.QuaternionKeyframeTrack(`${node.name}.quaternion`, times, quatValues));
-    }
-    if (boneName === 'hips'){
-      const posTimes = [];
-      const posValues = [];
-      perFrameSamples.forEach((s) => {
-        const b = s.bones.get('hips');
-        if (!b || !b.pos) return;
-        posTimes.push(s.time);
-        posValues.push(b.pos.x, b.pos.y, b.pos.z);
-      });
-      if (posTimes.length){
-        tracks.push(new THREE.VectorKeyframeTrack(`${node.name}.position`, posTimes, posValues));
-      }
-    }
-  });
-
-  const duration = frames.length ? frames[frames.length - 1].t : 0;
-  const clip = new THREE.AnimationClip('hanagasa-odori', duration, tracks);
-  local.clip = clip;
-  local.mixer = new THREE.AnimationMixer(vrm.scene);
-  local.action = local.mixer.clipAction(clip);
-  local.action.play();
-
-  vrmProgressText.textContent = `完了 — ${frames.length}フレームをベイクしました(${duration.toFixed(1)}秒)`;
-  vrmProgressFill.style.width = '100%';
-  vrmPlaybackControls.style.display = 'flex';
-  vrmExportBtn.disabled = false;
-  retargetBtn.disabled = false;
-}
-
-retargetBtn.addEventListener('click', retarget);
-
-vrmPlayBtn.addEventListener('click', () => {
-  if (local.action){ local.action.paused = false; if (!local.action.isRunning()) local.action.play(); }
-});
-vrmPauseBtn.addEventListener('click', () => {
-  if (local.action) local.action.paused = true;
-});
-
-// GLTFExporter cannot serialize three-vrm's MToonMaterial (a custom
-// ShaderMaterial used for VRM's toon shading) — this is a known, unresolved
-// limitation of the exporter, not something specific to this app. We build a
-// throwaway clone of the model for export and swap each MToon material for
-// an equivalent MeshStandardMaterial (keeping the same texture/color) so
-// generic glTF viewers render it correctly, while the live preview above
-// keeps its original toon-shaded look.
-function buildExportableScene(vrm){
-  const clone = SkeletonUtils.clone(vrm.scene);
-  clone.traverse((obj) => {
-    if (!obj.isMesh && !obj.isSkinnedMesh) return;
-    const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
-    const replaced = materials.map((mat) => {
-      if (!mat || !mat.isMToonMaterial) return mat;
-      const std = new THREE.MeshStandardMaterial({
-        map: mat.map || null,
-        color: mat.color ? mat.color.clone() : new THREE.Color(1, 1, 1),
-        transparent: !!mat.transparent,
-        alphaTest: mat.alphaTest || 0,
-        side: mat.side,
-        name: mat.name,
-      });
-      return std;
-    });
-    obj.material = Array.isArray(obj.material) ? replaced : replaced[0];
-  });
-  return clone;
-}
-
-vrmExportBtn.addEventListener('click', () => {
-  if (!local.vrm || !local.clip) return;
-  const exportScene = buildExportableScene(local.vrm);
-  const exporter = new GLTFExporter();
-  exporter.parse(
-    exportScene,
-    (result) => {
-      const blob = new Blob([result], { type: 'application/octet-stream' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'hanagasa-odori-animated.glb';
-      a.click();
-    },
-    (err) => console.error(err),
-    { binary: true, animations: [local.clip] }
+  vrmProgress.classList.add(
+   'visible'
   );
-});
+
+  return;
+ }
+
+ retargetBtn.disabled=true;
+
+ vrmExportBtn.disabled=true;
+
+ vrmProgress.classList.add(
+  'visible'
+ );
+
+ vrmProgressFill.style.width='0%';
+
+
+ /*
+  * 前回のアニメーションを完全に解除。
+  */
+ if(local.mixer){
+
+  local.mixer.stopAllAction();
+
+  local.mixer=null;
+ }
+
+ local.action=null;
+ local.clip=null;
+
+
+ /*
+  * Hipsの基準位置を再取得。
+  */
+ const hips=
+  vrm.humanoid
+   ?.getNormalizedBoneNode(
+    'hips'
+   );
+
+ if(hips){
+
+  local.hipsBasePosition=
+   hips.position.clone();
+ }
+
+
+ const trackedBoneNames=
+  new Set();
+
+ const perFrameSamples=[];
+
+ const frames=
+  poseData.frames;
+
+ for(
+  let i=0;
+  i<frames.length;
+  i++
+ ){
+
+  /*
+   * 毎フレーム、前フレームの状態に
+   * 引きずられないよう適用。
+   */
+  applyFrameToVRM(
+   vrm,
+   frames[i]
+  );
+
+  /*
+   * normalized → raw
+   */
+  vrm.humanoid.update();
+
+
+  const sample={
+   time:Number(frames[i].t)||0,
+   bones:new Map()
+  };
+
+
+  if(
+   vrm.humanoid.humanBones
+  ){
+
+   Object.keys(
+    vrm.humanoid.humanBones
+   ).forEach(
+    boneName=>{
+
+     const node=
+      vrm.humanoid
+       .getRawBoneNode(
+        boneName
+       );
+
+     if(!node)return;
+
+     trackedBoneNames.add(
+      boneName
+     );
+
+     sample.bones.set(
+      boneName,
+      {
+       quat:
+        node.quaternion.clone(),
+
+       /*
+        * V3.1
+        *
+        * Hipsの位置は固定するので、
+        * position track自体を作らない。
+        */
+       pos:null
+      }
+     );
+    }
+   );
+  }
+
+  perFrameSamples.push(
+   sample
+  );
+
+
+  if(i%15===0){
+
+   const pct=
+    Math.round(
+     (i/frames.length)*100
+    );
+
+   vrmProgressText.textContent=
+    `リターゲティング中 `+
+    `${i}/${frames.length}`+
+    `(${pct}%)`;
+
+   vrmProgressFill.style.width=
+    pct+'%';
+
+   await new Promise(
+    r=>setTimeout(r,0)
+   );
+  }
+ }
+
+
+ const tracks=[];
+
+
+ trackedBoneNames.forEach(
+  boneName=>{
+
+   const node=
+    vrm.humanoid
+     .getRawBoneNode(
+      boneName
+     );
+
+   if(!node)return;
+
+   const times=[];
+   const quatValues=[];
+
+
+   perFrameSamples.forEach(
+    sample=>{
+
+     const b=
+      sample.bones.get(
+       boneName
+      );
+
+     if(!b)return;
+
+     times.push(
+      sample.time
+     );
+
+     quatValues.push(
+      b.quat.x,
+      b.quat.y,
+      b.quat.z,
+      b.quat.w
+     );
+    }
+   );
+
+
+   if(times.length){
+
+    tracks.push(
+     new THREE.QuaternionKeyframeTrack(
+      `${node.name}.quaternion`,
+      times,
+      quatValues
+     )
+    );
+   }
+
+
+   /*
+    * 重要:
+    *
+    * 以前はここで
+    *
+    * if(boneName==='hips')
+    *     VectorKeyframeTrack(position)
+    *
+    * を作っていた。
+    *
+    * V3.1では完全に廃止。
+    *
+    * したがってGLBのアニメーションによって
+    * Hipsが上下へ移動することはない。
+    */
+  }
+ );
+
+
+ const lastTime=
+  frames.length
+  ?Number(
+    frames[frames.length-1].t
+   )||0
+  :0;
+
+ const fps=
+  poseData.frameRate||30;
+
+ const frameDuration=
+  1/fps;
+
+ const duration=
+  Math.max(
+   frameDuration,
+   lastTime+frameDuration
+  );
+
+
+ const clip=
+  new THREE.AnimationClip(
+   'hanagasa-odori',
+   duration,
+   tracks
+  );
+
+
+ local.clip=clip;
+
+ local.mixer=
+  new THREE.AnimationMixer(
+   vrm.scene
+  );
+
+ local.action=
+  local.mixer.clipAction(
+   clip
+  );
+
+ /*
+  * 明示的にループ再生。
+  */
+ local.action.reset();
+
+ local.action.setLoop(
+  THREE.LoopRepeat,
+  Infinity
+ );
+
+ local.action.clampWhenFinished=false;
+
+ local.action.play();
+
+
+ vrmProgressText.textContent=
+  `完了 — ${frames.length}フレームをベイクしました`+
+  `(${duration.toFixed(1)}秒)`+
+  ` / Hips位置固定`;
+
+ vrmProgressFill.style.width='100%';
+
+ vrmPlaybackControls.style.display='flex';
+
+ vrmExportBtn.disabled=false;
+
+ retargetBtn.disabled=false;
+}
+
+
+retargetBtn.addEventListener(
+ 'click',
+ retarget
+);
+
+
+vrmPlayBtn.addEventListener(
+ 'click',
+ ()=>{
+
+  if(!local.action)return;
+
+  local.action.paused=false;
+
+  if(
+   !local.action.isRunning()
+  ){
+
+   local.action.reset();
+
+   local.action.play();
+  }
+ }
+);
+
+
+vrmPauseBtn.addEventListener(
+ 'click',
+ ()=>{
+
+  if(local.action){
+
+   local.action.paused=true;
+  }
+ });
+
+
+function buildExportableScene(vrm){
+
+ const clone=
+  SkeletonUtils.clone(
+   vrm.scene
+  );
+
+ clone.traverse(
+  obj=>{
+
+   if(
+    !obj.isMesh&&
+    !obj.isSkinnedMesh
+   ){
+
+    return;
+   }
+
+   const materials=
+    Array.isArray(obj.material)
+    ?obj.material
+    :[
+      obj.material
+     ];
+
+   const replaced=
+    materials.map(
+     mat=>{
+
+      if(
+       !mat||
+       !mat.isMToonMaterial
+      ){
+
+       return mat;
+      }
+
+      return new THREE.MeshStandardMaterial({
+
+       map:mat.map||null,
+
+       color:
+        mat.color
+        ?mat.color.clone()
+        :new THREE.Color(
+         1,1,1
+        ),
+
+       transparent:
+        !!mat.transparent,
+
+       alphaTest:
+        mat.alphaTest||0,
+
+       side:mat.side,
+
+       name:mat.name
+      });
+     }
+    );
+
+   obj.material=
+    Array.isArray(obj.material)
+    ?replaced
+    :replaced[0];
+  }
+ );
+
+ return clone;
+}
+
+
+vrmExportBtn.addEventListener(
+ 'click',
+ ()=>{
+
+  if(
+   !local.vrm||
+   !local.clip
+  ){
+
+   return;
+  }
+
+  const exportScene=
+   buildExportableScene(
+    local.vrm
+   );
+
+  const exporter=
+   new GLTFExporter();
+
+  /*
+   * GLTFExporterがAnimationClipの
+   * raw bone trackをexportSceneの
+   * cloneへ正しく対応させるため、
+   * clipは元VRMのnode.nameを使用している。
+   */
+
+  exporter.parse(
+
+   exportScene,
+
+   result=>{
+
+    const blob=
+     new Blob(
+      [result],
+      {
+       type:
+        'application/octet-stream'
+      }
+     );
+
+    const a=
+     document.createElement('a');
+
+    const url=
+     URL.createObjectURL(blob);
+
+    a.href=url;
+
+    a.download=
+     'hanagasa-odori-animated-V3.1.glb';
+
+    a.click();
+
+    setTimeout(
+     ()=>URL.revokeObjectURL(url),
+     1000
+    );
+   },
+
+   err=>{
+    console.error(
+     'GLB export error:',
+     err
+    );
+   },
+
+   {
+    binary:true,
+    animations:[
+     local.clip
+    ]
+   }
+  );
+ });
+
 </script>
+
 </body>
 </html>
