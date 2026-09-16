@@ -2,711 +2,560 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 
-<title>動画同期ツール — モーションキャプチャ前処理 V3.2</title>
+<title>動画同期ツール — モーションキャプチャ前処理 V3.3</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
 
-
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
-
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
-
 <script src="https://cdn.jsdelivr.net/npm/kalidokit@1.1.4/dist/kalidokit.umd.js"></script>
-
 
 <script type="importmap">
 {
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-    "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2/lib/three-vrm.module.js",
-    "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/+esm"
+  "imports":{
+    "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+    "@pixiv/three-vrm":"https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2/lib/three-vrm.module.js",
+    "@mediapipe/tasks-vision":"https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/+esm"
   }
 }
 </script>
 
-
 <style>
-
 :root{
-  --bg:#12151d;
-  --bg-panel:#1a1f2b;
-  --bg-panel-raised:#202634;
-  --border:#2a3142;
-  --border-soft:#232a38;
-  --text:#edeff4;
-  --text-dim:#8b93a7;
-  --text-faint:#5a6377;
-  --accent:#e8604c;
-  --accent-soft:rgba(232,96,76,.14);
-  --accent-line:rgba(232,96,76,.4);
-  --indigo:#3d5a99;
-  --success:#6fcf97;
-  --success-soft:rgba(111,207,151,.12);
-  --mono:'SF Mono','Consolas','Menlo',monospace;
+ --bg:#12151d;
+ --bg-panel:#1a1f2b;
+ --bg-panel-raised:#202634;
+ --border:#2a3142;
+ --border-soft:#232a38;
+ --text:#edeff4;
+ --text-dim:#8b93a7;
+ --text-faint:#5a6377;
+ --accent:#e8604c;
+ --accent-soft:rgba(232,96,76,.14);
+ --accent-line:rgba(232,96,76,.4);
+ --indigo:#3d5a99;
+ --success:#6fcf97;
+ --success-soft:rgba(111,207,151,.12);
+ --mono:'SF Mono','Consolas','Menlo',monospace
 }
 
-*{
-  box-sizing:border-box
+*{box-sizing:border-box}
+
+html,body{
+ margin:0;
+ padding:0;
+ background:var(--bg);
+ color:var(--text);
+ font-family:'Zen Kaku Gothic New',-apple-system,sans-serif;
+ -webkit-font-smoothing:antialiased
 }
 
-html,
-body{
-  margin:0;
-  padding:0;
-  background:var(--bg);
-  color:var(--text);
-  font-family:'Zen Kaku Gothic New',-apple-system,sans-serif;
-  -webkit-font-smoothing:antialiased
-}
-
-body{
-  min-height:100vh
-}
+body{min-height:100vh}
 
 .app{
-  max-width:1180px;
-  margin:0 auto;
-  padding:40px 24px 100px
+ max-width:1180px;
+ margin:0 auto;
+ padding:40px 24px 100px
 }
 
 header.top{
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-end;
-  border-bottom:1px solid var(--border);
-  padding-bottom:22px;
-  margin-bottom:34px;
-  gap:20px;
-  flex-wrap:wrap
+ display:flex;
+ justify-content:space-between;
+ align-items:flex-end;
+ border-bottom:1px solid var(--border);
+ padding-bottom:22px;
+ margin-bottom:34px;
+ gap:20px;
+ flex-wrap:wrap
 }
 
 .brand-mark{
-  display:flex;
-  align-items:center;
-  gap:12px
+ display:flex;
+ align-items:center;
+ gap:12px
 }
 
 .brand-mark .dot{
-  width:10px;
-  height:10px;
-  border-radius:2px;
-  background:var(--accent);
-  transform:rotate(45deg);
-  flex-shrink:0
+ width:10px;
+ height:10px;
+ border-radius:2px;
+ background:var(--accent);
+ transform:rotate(45deg);
+ flex-shrink:0
 }
 
 h1{
-  font-family:'Shippori Mincho',serif;
-  font-weight:700;
-  font-size:26px;
-  letter-spacing:.02em;
-  margin:0
+ font-family:'Shippori Mincho',serif;
+ font-weight:700;
+ font-size:26px;
+ letter-spacing:.02em;
+ margin:0
 }
 
 .subtitle{
-  color:var(--text-dim);
-  font-size:13.5px;
-  margin-top:4px
+ color:var(--text-dim);
+ font-size:13.5px;
+ margin-top:4px
 }
 
 .fps-control{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  font-size:13px;
-  color:var(--text-dim)
+ display:flex;
+ align-items:center;
+ gap:10px;
+ font-size:13px;
+ color:var(--text-dim)
 }
 
 .fps-control input{
-  width:60px;
-  background:var(--bg-panel);
-  border:1px solid var(--border);
-  color:var(--text);
-  border-radius:6px;
-  padding:6px 8px;
-  font-family:var(--mono);
-  font-size:13px
+ width:60px;
+ background:var(--bg-panel);
+ border:1px solid var(--border);
+ color:var(--text);
+ border-radius:6px;
+ padding:6px 8px;
+ font-family:var(--mono);
+ font-size:13px
 }
 
 .section-label{
-  font-size:11.5px;
-  letter-spacing:.12em;
-  text-transform:uppercase;
-  color:var(--text-faint);
-  margin:0 0 14px 2px;
-  font-weight:600
+ font-size:11.5px;
+ letter-spacing:.12em;
+ text-transform:uppercase;
+ color:var(--text-faint);
+ margin:0 0 14px 2px;
+ font-weight:600
 }
 
 .slots{
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:16px;
-  margin-bottom:36px
+ display:grid;
+ grid-template-columns:repeat(3,1fr);
+ gap:16px;
+ margin-bottom:36px
 }
 
 @media(max-width:900px){
-  .slots{
-    grid-template-columns:1fr
-  }
+ .slots{grid-template-columns:1fr}
 }
 
 .slot{
-  background:var(--bg-panel);
-  border:1px solid var(--border);
-  border-radius:10px;
-  overflow:hidden;
-  display:flex;
-  flex-direction:column;
-  min-height:340px
+ background:var(--bg-panel);
+ border:1px solid var(--border);
+ border-radius:10px;
+ overflow:hidden;
+ display:flex;
+ flex-direction:column;
+ min-height:340px
 }
 
 .slot-head{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  padding:12px 14px;
-  border-bottom:1px solid var(--border-soft)
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ padding:12px 14px;
+ border-bottom:1px solid var(--border-soft)
 }
 
-.slot-head .angle-label{
-  font-size:13px;
-  font-weight:600
+.angle-label{
+ font-size:13px;
+ font-weight:600
 }
 
-.slot-head .angle-sub{
-  font-size:11px;
-  color:var(--text-faint);
-  margin-top:1px
+.angle-sub{
+ font-size:11px;
+ color:var(--text-faint);
+ margin-top:1px
 }
 
 .slot-status{
-  font-size:10.5px;
-  padding:3px 8px;
-  border-radius:20px;
-  border:1px solid var(--border);
-  color:var(--text-faint);
-  letter-spacing:.03em
+ font-size:10.5px;
+ padding:3px 8px;
+ border-radius:20px;
+ border:1px solid var(--border);
+ color:var(--text-faint);
+ letter-spacing:.03em
 }
 
 .slot-status.ready{
-  color:var(--success);
-  border-color:rgba(111,207,151,.3);
-  background:var(--success-soft)
+ color:var(--success);
+ border-color:rgba(111,207,151,.3);
+ background:var(--success-soft)
 }
 
 .slot-status.analyzing{
-  color:var(--accent);
-  border-color:var(--accent-line);
-  background:var(--accent-soft)
+ color:var(--accent);
+ border-color:var(--accent-line);
+ background:var(--accent-soft)
 }
 
 .drop{
-  flex:1;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  flex-direction:column;
-  gap:10px;
-  padding:24px;
-  cursor:pointer;
-  color:var(--text-faint);
-  border:1px dashed var(--border);
-  margin:12px;
-  border-radius:8px
+ flex:1;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ flex-direction:column;
+ gap:10px;
+ padding:24px;
+ cursor:pointer;
+ color:var(--text-faint);
+ border:1px dashed var(--border);
+ margin:12px;
+ border-radius:8px
 }
 
 .drop:hover{
-  border-color:var(--accent-line);
-  color:var(--text-dim)
+ border-color:var(--accent-line);
+ color:var(--text-dim)
 }
 
-.drop svg{
-  opacity:.5
-}
+.drop svg{opacity:.5}
 
 .drop .hint{
-  font-size:12px;
-  text-align:center;
-  line-height:1.5
+ font-size:12px;
+ text-align:center;
+ line-height:1.5
 }
 
 .drop .hint b{
-  color:var(--text-dim);
-  font-weight:600
+ color:var(--text-dim);
+ font-weight:600
 }
 
 .slot-body{
-  display:none;
-  flex-direction:column;
-  flex:1
+ display:none;
+ flex-direction:column;
+ flex:1
 }
 
-.slot.filled .drop{
-  display:none
-}
-
-.slot.filled .slot-body{
-  display:flex
-}
+.slot.filled .drop{display:none}
+.slot.filled .slot-body{display:flex}
 
 video.preview{
-  width:100%;
-  aspect-ratio:16/9;
-  background:#000;
-  display:block;
-  object-fit:cover
+ width:100%;
+ aspect-ratio:16/9;
+ background:#000;
+ display:block;
+ object-fit:cover
 }
 
 .filename{
-  font-size:11.5px;
-  color:var(--text-dim);
-  padding:8px 14px 0;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  font-family:var(--mono)
+ font-size:11.5px;
+ color:var(--text-dim);
+ padding:8px 14px 0;
+ white-space:nowrap;
+ overflow:hidden;
+ text-overflow:ellipsis;
+ font-family:var(--mono)
 }
 
 .waveform-wrap{
-  padding:8px 14px 4px;
-  position:relative
+ padding:8px 14px 4px;
+ position:relative
 }
 
 canvas.waveform{
-  width:100%;
-  height:64px;
-  display:block;
-  border-radius:4px
+ width:100%;
+ height:64px;
+ display:block;
+ border-radius:4px
 }
 
 .clap-readout{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  padding:6px 14px 12px;
-  font-size:12px;
-  color:var(--text-dim)
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ padding:6px 14px 12px;
+ font-size:12px;
+ color:var(--text-dim)
 }
 
 .clap-readout .time{
-  font-family:var(--mono);
-  color:var(--text)
+ font-family:var(--mono);
+ color:var(--text)
 }
 
 .nudge{
-  display:flex;
-  gap:4px;
-  align-items:center
+ display:flex;
+ gap:4px;
+ align-items:center
 }
 
 .nudge button{
-  width:22px;
-  height:22px;
-  border-radius:5px;
-  border:1px solid var(--border);
-  background:var(--bg-panel-raised);
-  color:var(--text-dim);
-  cursor:pointer;
-  font-size:13px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  line-height:1
+ width:22px;
+ height:22px;
+ border-radius:5px;
+ border:1px solid var(--border);
+ background:var(--bg-panel-raised);
+ color:var(--text-dim);
+ cursor:pointer;
+ font-size:13px;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ line-height:1
 }
 
 .nudge button:hover{
-  border-color:var(--accent-line);
-  color:var(--accent)
+ border-color:var(--accent-line);
+ color:var(--accent)
 }
 
 .controls-row{
-  display:flex;
-  gap:14px;
-  align-items:center;
-  margin-bottom:30px;
-  flex-wrap:wrap
+ display:flex;
+ gap:14px;
+ align-items:center;
+ margin-bottom:30px;
+ flex-wrap:wrap
 }
 
 button.primary{
-  background:var(--accent);
-  color:#181008;
-  border:none;
-  font-weight:700;
-  padding:12px 22px;
-  border-radius:8px;
-  font-size:14px;
-  cursor:pointer;
-  letter-spacing:.01em;
-  font-family:'Zen Kaku Gothic New',sans-serif
+ background:var(--accent);
+ color:#181008;
+ border:none;
+ font-weight:700;
+ padding:12px 22px;
+ border-radius:8px;
+ font-size:14px;
+ cursor:pointer;
+ letter-spacing:.01em;
+ font-family:'Zen Kaku Gothic New',sans-serif
 }
 
-button.primary:hover{
-  filter:brightness(1.08)
-}
-
-button.primary:active{
-  transform:scale(.98)
-}
+button.primary:hover{filter:brightness(1.08)}
+button.primary:active{transform:scale(.98)}
 
 button.primary:disabled{
-  background:var(--border);
-  color:var(--text-faint);
-  cursor:not-allowed
+ background:var(--border);
+ color:var(--text-faint);
+ cursor:not-allowed
 }
 
 button.secondary{
-  background:transparent;
-  color:var(--text-dim);
-  border:1px solid var(--border);
-  padding:11px 18px;
-  border-radius:8px;
-  font-size:13.5px;
-  cursor:pointer;
-  font-family:'Zen Kaku Gothic New',sans-serif
+ background:transparent;
+ color:var(--text-dim);
+ border:1px solid var(--border);
+ padding:11px 18px;
+ border-radius:8px;
+ font-size:13.5px;
+ cursor:pointer;
+ font-family:'Zen Kaku Gothic New',sans-serif
 }
 
 button.secondary:hover{
-  border-color:var(--accent-line);
-  color:var(--text)
+ border-color:var(--accent-line);
+ color:var(--text)
 }
 
 button.secondary:disabled{
-  opacity:.4;
-  cursor:not-allowed
+ opacity:.4;
+ cursor:not-allowed
 }
 
 .status-line{
-  font-size:13px;
-  color:var(--text-dim)
+ font-size:13px;
+ color:var(--text-dim)
 }
 
-.status-line strong{
-  color:var(--success)
-}
+.status-line strong{color:var(--success)}
 
 .sync-panel{
-  background:var(--bg-panel);
-  border:1px solid var(--border);
-  border-radius:10px;
-  padding:20px 22px;
-  margin-bottom:28px;
-  display:none
+ background:var(--bg-panel);
+ border:1px solid var(--border);
+ border-radius:10px;
+ padding:20px 22px;
+ margin-bottom:28px;
+ display:none
 }
 
-.sync-panel.visible{
-  display:block
-}
+.sync-panel.visible{display:block}
 
 .sync-panel h2{
-  font-size:14px;
-  margin:0 0 14px;
-  font-weight:600
+ font-size:14px;
+ margin:0 0 14px;
+ font-weight:600
 }
 
 table.offsets{
-  width:100%;
-  border-collapse:collapse;
-  font-size:13px
+ width:100%;
+ border-collapse:collapse;
+ font-size:13px
 }
 
 table.offsets th{
-  text-align:left;
-  color:var(--text-faint);
-  font-weight:500;
-  font-size:11px;
-  text-transform:uppercase;
-  letter-spacing:.06em;
-  padding:4px 10px 8px 0;
-  border-bottom:1px solid var(--border-soft)
+ text-align:left;
+ color:var(--text-faint);
+ font-weight:500;
+ font-size:11px;
+ text-transform:uppercase;
+ letter-spacing:.06em;
+ padding:4px 10px 8px 0;
+ border-bottom:1px solid var(--border-soft)
 }
 
 table.offsets td{
-  padding:9px 10px 9px 0;
-  border-bottom:1px solid var(--border-soft);
-  font-family:var(--mono)
+ padding:9px 10px 9px 0;
+ border-bottom:1px solid var(--border-soft);
+ font-family:var(--mono)
 }
 
-table.offsets tr:last-child td{
-  border-bottom:none
-}
+table.offsets tr:last-child td{border-bottom:none}
 
-.offset-positive{
-  color:var(--accent)
-}
-
-.offset-zero{
-  color:var(--success)
-}
+.offset-positive{color:var(--accent)}
+.offset-zero{color:var(--success)}
 
 .preview-stage{
-  display:none;
-  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-  gap:14px;
-  margin-top:18px
+ display:none;
+ grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+ gap:14px;
+ margin-top:18px
 }
 
-.preview-stage.visible{
-  display:grid
-}
+.preview-stage.visible{display:grid}
 
 .preview-stage video{
-  width:100%;
-  border-radius:8px;
-  background:#000
+ width:100%;
+ border-radius:8px;
+ background:#000
 }
 
 .preview-stage .cap{
-  font-size:11px;
-  color:var(--text-faint);
-  margin-top:6px;
-  font-family:var(--mono)
+ font-size:11px;
+ color:var(--text-faint);
+ margin-top:6px;
+ font-family:var(--mono)
 }
 
 .pose-panel{
-  display:none;
-  background:var(--bg-panel);
-  border:1px solid var(--border);
-  border-radius:10px;
-  padding:20px 22px;
-  margin-bottom:28px
+ display:none;
+ background:var(--bg-panel);
+ border:1px solid var(--border);
+ border-radius:10px;
+ padding:20px 22px;
+ margin-bottom:28px
 }
 
-.pose-panel.visible{
-  display:block
-}
+.pose-panel.visible{display:block}
 
 .pose-panel select{
-  background:var(--bg-panel-raised);
-  color:var(--text);
-  border:1px solid var(--border);
-  border-radius:7px;
-  padding:10px 12px;
-  font-size:13.5px;
-  font-family:'Zen Kaku Gothic New',sans-serif;
-  max-width:100%
+ background:var(--bg-panel-raised);
+ color:var(--text);
+ border:1px solid var(--border);
+ border-radius:7px;
+ padding:10px 12px;
+ font-size:13.5px;
+ font-family:'Zen Kaku Gothic New',sans-serif;
+ max-width:100%
 }
 
 .pose-progress{
-  font-size:12.5px;
-  color:var(--text-dim);
-  margin:4px 0 16px;
-  font-family:var(--mono);
-  display:none
+ font-size:12.5px;
+ color:var(--text-dim);
+ margin:4px 0 16px;
+ font-family:var(--mono);
+ display:none
 }
 
-.pose-progress.visible{
-  display:block
-}
+.pose-progress.visible{display:block}
 
 .pose-progress-bar{
-  height:4px;
-  background:var(--border);
-  border-radius:2px;
-  margin-top:6px;
-  overflow:hidden
+ height:4px;
+ background:var(--border);
+ border-radius:2px;
+ margin-top:6px;
+ overflow:hidden
 }
 
 .pose-progress-bar-fill{
-  height:100%;
-  background:var(--accent);
-  width:0%;
-  transition:width .1s linear
+ height:100%;
+ background:var(--accent);
+ width:0%;
+ transition:width .1s linear
 }
 
 .pose-stage{
-  position:relative;
-  width:100%;
-  max-width:640px;
-  border-radius:8px;
-  overflow:hidden;
-  background:#000;
-  display:none
+ position:relative;
+ width:100%;
+ max-width:640px;
+ border-radius:8px;
+ overflow:hidden;
+ background:#000;
+ display:none
 }
 
-.pose-stage.visible{
-  display:block
-}
+.pose-stage.visible{display:block}
 
 .pose-stage canvas{
-  width:100%;
-  display:block
+ width:100%;
+ display:block
 }
 
 .vrm-viewport{
-  width:100%;
-  height:460px;
-  background:#0a0d13;
-  border-radius:8px;
-  margin-top:16px;
-  display:none;
-  position:relative;
-  overflow:hidden
+ width:100%;
+ height:460px;
+ background:#0a0d13;
+ border-radius:8px;
+ margin-top:16px;
+ display:none;
+ position:relative;
+ overflow:hidden
 }
 
-.vrm-viewport.visible{
-  display:block
-}
+.vrm-viewport.visible{display:block}
 
 .vrm-viewport canvas{
-  display:block;
-  width:100%;
-  height:100%
+ display:block;
+ width:100%;
+ height:100%
 }
 
 .vrm-hint{
-  position:absolute;
-  bottom:10px;
-  left:12px;
-  font-size:11px;
-  color:var(--text-faint);
-  font-family:var(--mono);
-  pointer-events:none;
-  z-index:2
+ position:absolute;
+ bottom:10px;
+ left:12px;
+ font-size:11px;
+ color:var(--text-faint);
+ font-family:var(--mono);
+ pointer-events:none;
+ z-index:2
 }
 
 footer.note{
-  margin-top:40px;
-  padding-top:20px;
-  border-top:1px solid var(--border-soft);
-  font-size:12px;
-  color:var(--text-faint);
-  line-height:1.7
+ margin-top:40px;
+ padding-top:20px;
+ border-top:1px solid var(--border-soft);
+ font-size:12px;
+ color:var(--text-faint);
+ line-height:1.7
 }
-
 </style>
 </head>
 
-
 <body>
 
-
 <div id="fatalErrorBanner"
- style="
- display:none;
- position:fixed;
- top:0;
- left:0;
- right:0;
- z-index:9999;
- background:#8b1e1e;
- color:#fff;
- padding:10px 16px;
- font:12px/1.5 monospace;
- white-space:pre-wrap;
- max-height:40vh;
- overflow:auto;
- ">
+style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#8b1e1e;color:#fff;padding:10px 16px;font:12px/1.5 monospace;white-space:pre-wrap;max-height:40vh;overflow:auto;">
 
 <button id="fatalErrorClose"
- style="
- float:right;
- background:transparent;
- border:1px solid rgba(255,255,255,.4);
- color:#fff;
- border-radius:4px;
- padding:2px 8px;
- cursor:pointer;
- font-family:'Zen Kaku Gothic New',sans-serif;
- font-size:12px;
- ">
+style="float:right;background:transparent;border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:4px;padding:2px 8px;cursor:pointer;font-family:'Zen Kaku Gothic New',sans-serif;font-size:12px;">
 ✕ 閉じる
 </button>
 
 <div id="fatalErrorText"></div>
-
 </div>
 
-
-<script>
-
-function showFatalError(msg){
-
- const el=
-  document.getElementById(
-   'fatalErrorBanner'
-  );
-
- const textEl=
-  document.getElementById(
-   'fatalErrorText'
-  );
-
- el.style.display='block';
-
- textEl.textContent=
-  '⚠ スクリプトエラー: '+
-  msg+
-  '\n(この内容をそのまま開発者に伝えてください)';
-}
-
-
-window.addEventListener(
- 'error',
- e=>{
-
-  showFatalError(
-   (e.message||'unknown error')+
-   (
-    e.filename
-    ?` (${e.filename}:${e.lineno})`
-    :''
-   )
-  );
- }
-);
-
-
-window.addEventListener(
- 'unhandledrejection',
- e=>{
-
-  showFatalError(
-   'Promise rejection: '+
-   (
-    e.reason?.message||
-    e.reason||
-    'unknown rejection'
-   )
-  );
- }
-);
-
-
-document
- .getElementById('fatalErrorClose')
- .addEventListener(
-  'click',
-  ()=>{
-   document
-    .getElementById(
-     'fatalErrorBanner'
-    )
-    .style.display='none';
-  }
-);
-
-</script>
-
-
 <div class="app">
-
 
 <header class="top">
 
 <div>
 
 <div class="brand-mark">
-
 <span class="dot"></span>
-
 <h1>動画同期ツール</h1>
-
 </div>
 
 <div class="subtitle">
@@ -715,17 +564,16 @@ document
 
 </div>
 
-
 <div class="fps-control">
 
 フレームレート
 
 <input
- type="number"
- id="fpsInput"
- value="30"
- min="1"
- max="240">
+type="number"
+id="fpsInput"
+value="30"
+min="1"
+max="240">
 
 fps
 
@@ -733,333 +581,218 @@ fps
 
 </header>
 
-
 <div class="section-label">
 01 — 動画を選択(1〜3本)
 </div>
 
-
-<div
- class="slots"
- id="slots">
-</div>
-
+<div class="slots" id="slots"></div>
 
 <div class="controls-row">
 
 <button
- class="primary"
- id="analyzeBtn"
- disabled>
-
+class="primary"
+id="analyzeBtn"
+disabled>
 手拍子を検出して同期
-
 </button>
-
 
 <button
- class="secondary"
- id="exportBtn"
- disabled>
-
+class="secondary"
+id="exportBtn"
+disabled>
 オフセットをJSON書き出し
-
 </button>
 
-
-<div
- class="status-line"
- id="statusLine">
-</div>
+<div class="status-line" id="statusLine"></div>
 
 </div>
 
-
-<div
- class="sync-panel"
- id="syncPanel">
+<div class="sync-panel" id="syncPanel">
 
 <h2>検出結果</h2>
 
-<table
- class="offsets"
- id="offsetsTable">
-</table>
+<table class="offsets" id="offsetsTable"></table>
 
 </div>
 
-
 <div
- class="section-label"
- id="previewLabel"
- style="display:none;">
-
+class="section-label"
+id="previewLabel"
+style="display:none;">
 02 — 同期プレビュー
-
 </div>
 
-
 <div
- class="controls-row"
- id="previewControls"
- style="display:none;">
+class="controls-row"
+id="previewControls"
+style="display:none;">
 
-<button
- class="secondary"
- id="playSyncBtn">
-
+<button class="secondary" id="playSyncBtn">
 同期再生
-
 </button>
 
-<button
- class="secondary"
- id="pauseSyncBtn">
-
+<button class="secondary" id="pauseSyncBtn">
 一時停止
-
 </button>
 
 </div>
 
+<div class="preview-stage" id="previewStage"></div>
 
 <div
- class="preview-stage"
- id="previewStage">
-</div>
-
-
-<div
- class="section-label"
- id="poseSectionLabel"
- style="display:none;">
-
+class="section-label"
+id="poseSectionLabel"
+style="display:none;">
 03 — 骨格推定(MediaPipe Holistic)
-
 </div>
 
-
-<div
- class="pose-panel"
- id="posePanel">
-
+<div class="pose-panel" id="posePanel">
 
 <div class="controls-row">
 
-<select
- id="poseSourceSelect">
-</select>
+<select id="poseSourceSelect"></select>
 
-
-<button
- class="primary"
- id="runPoseBtn">
-
+<button class="primary" id="runPoseBtn">
 姿勢推定を実行
-
 </button>
 
-
-<button
- class="secondary"
- id="exportPoseBtn"
- disabled>
-
+<button class="secondary" id="exportPoseBtn" disabled>
 骨格データをJSON書き出し
-
 </button>
 
 </div>
 
+<div class="pose-progress" id="poseProgress">
 
-<div
- class="pose-progress"
- id="poseProgress">
-
-<span
- id="poseProgressText">
-
-待機中
-
-</span>
-
+<span id="poseProgressText">待機中</span>
 
 <div class="pose-progress-bar">
+<div
+class="pose-progress-bar-fill"
+id="poseProgressFill">
+</div>
+</div>
+
+</div>
+
+<div class="pose-stage" id="poseStage">
+
+<canvas id="poseCanvas"></canvas>
+
+</div>
+
+</div>
 
 <div
- class="pose-progress-bar-fill"
- id="poseProgressFill">
-</div>
-
-</div>
-
-</div>
-
-
-<div
- class="pose-stage"
- id="poseStage">
-
-<canvas
- id="poseCanvas">
-</canvas>
-
-</div>
-
-</div>
-
-
-<div
- class="section-label"
- id="vrmSectionLabel"
- style="display:none;">
-
+class="section-label"
+id="vrmSectionLabel"
+style="display:none;">
 04 — VRMリターゲティング
-
 </div>
 
-
 <div
- class="pose-panel"
- id="vrmPanel"
- style="display:none;">
-
+class="pose-panel"
+id="vrmPanel"
+style="display:none;">
 
 <div class="controls-row">
 
-
 <label
- class="secondary"
- style="
- cursor:pointer;
- display:inline-flex;
- align-items:center;
- ">
+class="secondary"
+style="cursor:pointer;display:inline-flex;align-items:center;">
 
 VRM/glbを選択
 
 <input
- type="file"
- accept=".vrm,.glb"
- id="vrmFileInput"
- style="display:none">
+type="file"
+accept=".vrm,.glb"
+id="vrmFileInput"
+style="display:none">
 
 </label>
 
-
 <label
- class="secondary"
- style="
- cursor:pointer;
- display:inline-flex;
- align-items:center;
- ">
+class="secondary"
+style="cursor:pointer;display:inline-flex;align-items:center;">
 
 骨格データ(JSON)を読み込む
 
 <input
- type="file"
- accept=".json"
- id="poseJsonFileInput"
- style="display:none">
+type="file"
+accept=".json"
+id="poseJsonFileInput"
+style="display:none">
 
 </label>
 
-
 <button
- class="primary"
- id="retargetBtn"
- disabled>
-
+class="primary"
+id="retargetBtn"
+disabled>
 リターゲティングを実行
-
 </button>
 
 </div>
 
+<div class="pose-progress" id="vrmProgress">
 
-<div
- class="pose-progress"
- id="vrmProgress">
-
-<span
- id="vrmProgressText">
-
-待機中
-
-</span>
-
+<span id="vrmProgressText">待機中</span>
 
 <div class="pose-progress-bar">
+<div
+class="pose-progress-bar-fill"
+id="vrmProgressFill">
+</div>
+</div>
+
+</div>
 
 <div
- class="pose-progress-bar-fill"
- id="vrmProgressFill">
-</div>
+class="controls-row"
+id="vrmPlaybackControls"
+style="display:none;">
 
-</div>
-
-</div>
-
-
-<div
- class="controls-row"
- id="vrmPlaybackControls"
- style="display:none;">
-
-<button
- class="secondary"
- id="vrmPlayBtn">
-
+<button class="secondary" id="vrmPlayBtn">
 再生
-
 </button>
 
-
-<button
- class="secondary"
- id="vrmPauseBtn">
-
+<button class="secondary" id="vrmPauseBtn">
 一時停止
-
 </button>
-
 
 <button
- class="secondary"
- id="vrmExportBtn"
- disabled>
-
+class="secondary"
+id="vrmExportBtn"
+disabled>
 アニメーション付きVRMをglbで書き出し
-
 </button>
 
 </div>
 
-
 <div
- class="vrm-viewport"
- id="vrmViewport">
+class="vrm-viewport"
+id="vrmViewport">
 
-<div
- class="vrm-hint"
- id="vrmHint">
-</div>
+<div class="vrm-hint" id="vrmHint"></div>
 
 </div>
 
 </div>
-
 
 <footer class="note">
 
 手拍子の検出は、各動画の音声から短時間RMSエンベロープを算出し、
 立ち上がりが急峻な地点を目印として採用しています。
 
-誤検出時は各スロットの ± ボタンでフレーム単位に手動補正できます。
+自動検出できない場合でも、各スロットの ± ボタンで
+フレーム単位に手動指定できます。
 
-V3.2では動画シーク、MediaPipeの動画タイムスタンプ、
-骨格データの検証、VRMアニメーションベイク処理を強化しています。
+V3.3では、動画選択後に手拍子検出ボタンが
+正しく有効になるよう同期処理を修正しています。
+
+また、手動同期位置を保持しながら、
+MediaPipeの動画タイムスタンプ、骨格データ検証、
+VRMアニメーションベイク処理を行います。
 
 Hipsの絶対位置はVRMへ直接適用せず、
 初期姿勢を基準として固定します。
@@ -1069,4982 +802,3249 @@ Hipsの絶対位置はVRMへ直接適用せず、
 
 </footer>
 
-
 </div>
-
 
 <script>
 
+function showFatalError(msg){
+
+const el=document.getElementById('fatalErrorBanner');
+const textEl=document.getElementById('fatalErrorText');
+
+el.style.display='block';
+
+textEl.textContent=
+'⚠ スクリプトエラー: '+
+msg+
+'\n(この内容をそのまま開発者に伝えてください)';
+}
+
+window.addEventListener('error',e=>{
+showFatalError(
+(e.message||'unknown error')+
+(e.filename?` (${e.filename}:${e.lineno})`:'')
+);
+});
+
+window.addEventListener('unhandledrejection',e=>{
+showFatalError(
+'Promise rejection: '+
+(e.reason?.message||e.reason||'unknown rejection')
+);
+});
+
+document.getElementById('fatalErrorClose').addEventListener(
+'click',
+()=>{
+document.getElementById('fatalErrorBanner').style.display='none';
+});
 
 const SLOT_META=[
-
- {
-  label:'正面',
-  sub:'距離約4m'
- },
-
- {
-  label:'斜め45度',
-  sub:'距離約4m'
- },
-
- {
-  label:'予備 / 3台目',
-  sub:'任意'
- }
-
+{label:'正面',sub:'距離約4m'},
+{label:'斜め45度',sub:'距離約4m'},
+{label:'予備 / 3台目',sub:'任意'}
 ];
 
-
 const state={
-
- slots:[
-  null,
-  null,
-  null
- ],
-
- poseData:null,
-
- _previewActive:null,
-
- _previewUrls:[]
-
+slots:[null,null,null],
+poseData:null,
+_previewActive:null,
+_previewUrls:[]
 };
-
 
 window.appState=state;
 
-
-const slotsEl=
- document.getElementById('slots');
-
-const analyzeBtn=
- document.getElementById('analyzeBtn');
-
-const exportBtn=
- document.getElementById('exportBtn');
-
-const statusLine=
- document.getElementById('statusLine');
-
-const syncPanel=
- document.getElementById('syncPanel');
-
-const offsetsTable=
- document.getElementById('offsetsTable');
-
-const previewStage=
- document.getElementById('previewStage');
-
-const previewLabel=
- document.getElementById('previewLabel');
-
-const previewControls=
- document.getElementById('previewControls');
-
-const fpsInput=
- document.getElementById('fpsInput');
-
+const slotsEl=document.getElementById('slots');
+const analyzeBtn=document.getElementById('analyzeBtn');
+const exportBtn=document.getElementById('exportBtn');
+const statusLine=document.getElementById('statusLine');
+const syncPanel=document.getElementById('syncPanel');
+const offsetsTable=document.getElementById('offsetsTable');
+const previewStage=document.getElementById('previewStage');
+const previewLabel=document.getElementById('previewLabel');
+const previewControls=document.getElementById('previewControls');
+const fpsInput=document.getElementById('fpsInput');
 
 function buildSlots(){
 
- SLOT_META.forEach(
-  (meta,i)=>{
+SLOT_META.forEach((meta,i)=>{
 
-   const slot=
-    document.createElement('div');
+const slot=document.createElement('div');
+slot.className='slot';
+slot.id=`slot-${i}`;
 
-   slot.className='slot';
+slot.innerHTML=`
 
-   slot.id=
-    `slot-${i}`;
+<div class="slot-head">
 
+<div>
+<div class="angle-label">${meta.label}</div>
+<div class="angle-sub">${meta.sub}</div>
+</div>
 
-   slot.innerHTML=`
+<div
+class="slot-status"
+id="status-${i}">
+未選択
+</div>
 
-   <div class="slot-head">
+</div>
 
-    <div>
+<label class="drop" id="drop-${i}">
 
-     <div class="angle-label">
-      ${meta.label}
-     </div>
+<svg
+width="28"
+height="28"
+viewBox="0 0 24 24"
+fill="none"
+stroke="currentColor"
+stroke-width="1.5">
 
-     <div class="angle-sub">
-      ${meta.sub}
-     </div>
+<path d="M12 3v12m0-12l-4 4m4-4l4 4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
 
-    </div>
+</svg>
 
-    <div
-     class="slot-status"
-     id="status-${i}">
+<div class="hint">
+<b>動画を選択</b>
+<br>
+タップしてファイルを選ぶ
+</div>
 
-     未選択
+<input
+type="file"
+accept="video/*"
+style="display:none"
+id="file-${i}">
 
-    </div>
+</label>
 
-   </div>
+<div class="slot-body">
 
+<video
+class="preview"
+id="video-${i}"
+muted
+playsinline>
+</video>
 
-   <label
-    class="drop"
-    id="drop-${i}">
+<div
+class="filename"
+id="filename-${i}">
+</div>
 
-    <svg
-     width="28"
-     height="28"
-     viewBox="0 0 24 24"
-     fill="none"
-     stroke="currentColor"
-     stroke-width="1.5">
+<div class="waveform-wrap">
 
-     <path
-      d="M12 3v12m0-12l-4 4m4-4l4 4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+<canvas
+class="waveform"
+id="wave-${i}">
+</canvas>
 
-    </svg>
+</div>
 
-    <div class="hint">
+<div class="clap-readout">
 
-     <b>動画を選択</b>
+<span>
+手拍子位置:
+<span
+class="time"
+id="claptime-${i}">
+—
+</span>
+</span>
 
-     <br>
+<span class="nudge">
 
-     タップしてファイルを選ぶ
+<button data-slot="${i}" data-dir="-1">−</button>
+<button data-slot="${i}" data-dir="1">+</button>
 
-    </div>
+</span>
 
+</div>
 
-    <input
-     type="file"
-     accept="video/*"
-     style="display:none"
-     id="file-${i}">
+</div>
+`;
 
-   </label>
+slotsEl.appendChild(slot);
 
+const input=slot.querySelector(`#file-${i}`);
 
-   <div class="slot-body">
+input.addEventListener('change',async e=>{
 
-    <video
-     class="preview"
-     id="video-${i}"
-     muted
-     playsinline>
-    </video>
+const file=e.target.files?.[0];
 
+if(!file)return;
 
-    <div
-     class="filename"
-     id="filename-${i}">
-    </div>
+await handleFile(i,file);
 
+input.value='';
 
-    <div class="waveform-wrap">
+});
 
-     <canvas
-      class="waveform"
-      id="wave-${i}">
-     </canvas>
+});
 
-    </div>
+slotsEl.addEventListener('click',e=>{
 
+const btn=e.target.closest('button[data-slot]');
 
-    <div class="clap-readout">
+if(!btn)return;
 
-     <span>
+const i=parseInt(btn.dataset.slot,10);
+const dir=parseInt(btn.dataset.dir,10);
 
-      手拍子位置:
+nudgeClap(i,dir);
 
-      <span
-       class="time"
-       id="claptime-${i}">
-
-       —
-
-      </span>
-
-     </span>
-
-
-     <span class="nudge">
-
-      <button
-       data-slot="${i}"
-       data-dir="-1">
-
-       −
-
-      </button>
-
-
-      <button
-       data-slot="${i}"
-       data-dir="1">
-
-       +
-
-      </button>
-
-     </span>
-
-    </div>
-
-   </div>
-
-   `;
-
-
-   slotsEl.appendChild(slot);
-
-
-   const input=
-    slot.querySelector(
-     `#file-${i}`
-    );
-
-
-   input.addEventListener(
-    'change',
-    e=>{
-
-     const file=
-      e.target.files?.[0];
-
-     if(file){
-
-      handleFile(
-       i,
-       file
-      );
-     }
-
-    }
-   );
-
-  }
- );
-
-
- slotsEl.addEventListener(
-  'click',
-  e=>{
-
-   const btn=
-    e.target.closest(
-     'button[data-slot]'
-    );
-
-   if(!btn)return;
-
-   const i=
-    parseInt(
-     btn.dataset.slot,
-     10
-    );
-
-   const dir=
-    parseInt(
-     btn.dataset.dir,
-     10
-    );
-
-   nudgeClap(
-    i,
-    dir
-   );
-
-  }
- );
+});
 
 }
 
+function setStatus(i,text,cls){
 
-function setStatus(
- i,
- text,
- cls
-){
+const el=document.getElementById(`status-${i}`);
 
- const el=
-  document.getElementById(
-   `status-${i}`
-  );
+el.textContent=text;
 
- el.textContent=text;
-
- el.className=
-  'slot-status'+
-  (
-   cls
-   ?' '+cls
-   :''
-  );
+el.className='slot-status'+(cls?' '+cls:'');
 
 }
 
+async function cleanupSlot(i){
 
-async function cleanupSlot(
- i
-){
+const old=state.slots[i];
 
- const old=
-  state.slots[i];
+if(!old)return;
 
- if(!old)return;
+if(old.videoUrl){
+try{
+URL.revokeObjectURL(old.videoUrl);
+}catch{}
+}
 
+if(old.audioContext){
+try{
+await old.audioContext.close();
+}catch{}
+}
 
- if(old.videoUrl){
+state.slots[i]=null;
+}
 
-  try{
-   URL.revokeObjectURL(
-    old.videoUrl
-   );
-  }catch{}
- }
+function invalidatePoseData(){
 
+state.poseData=null;
 
- if(old.audioContext){
+if(typeof window.dispatchEvent==='function'){
+window.dispatchEvent(
+new CustomEvent('pose-data-invalidated')
+);
+}
 
-  try{
-
-   await old.audioContext.close();
-
-  }catch{}
- }
-
-
- state.slots[i]=null;
+exportPoseBtn.disabled=true;
 
 }
 
+async function handleFile(i,file){
 
-async function handleFile(
- i,
- file
-){
+await cleanupSlot(i);
 
- await cleanupSlot(i);
+invalidatePoseData();
 
+syncPanel.classList.remove('visible');
+previewStage.classList.remove('visible');
+previewLabel.style.display='none';
+previewControls.style.display='none';
+state._previewActive=null;
 
- state.poseData=null;
+const slotEl=document.getElementById(`slot-${i}`);
+slotEl.classList.add('filled');
 
+document.getElementById(`filename-${i}`).textContent=file.name;
 
- const slotEl=
-  document.getElementById(
-   `slot-${i}`
-  );
+const videoEl=document.getElementById(`video-${i}`);
 
- slotEl.classList.add(
-  'filled'
- );
+const videoUrl=URL.createObjectURL(file);
 
+videoEl.src=videoUrl;
 
- document.getElementById(
-  `filename-${i}`
- ).textContent=
-  file.name;
+state.slots[i]={
 
+file,
+videoEl,
+videoUrl,
 
- const videoEl=
-  document.getElementById(
-   `video-${i}`
-  );
+audioBuffer:null,
+audioContext:null,
+envelope:null,
+envRate:null,
 
+clapTime:null,
+audioAvailable:false,
+clapDetected:false,
+clapScore:null,
 
- const videoUrl=
-  URL.createObjectURL(file);
+manualSync:false
 
+};
 
- videoEl.src=videoUrl;
+setStatus(i,'音声を解析中…','analyzing');
 
+updateClapReadout(i);
 
- state.slots[i]={
+try{
 
-  file,
+const arrayBuffer=await file.arrayBuffer();
 
-  videoEl,
+const AudioContextClass=
+window.AudioContext||window.webkitAudioContext;
 
-  videoUrl,
+if(!AudioContextClass){
+throw new Error(
+'このブラウザではAudioContextを利用できません。'
+);
+}
 
-  audioBuffer:null,
+const ctx=new AudioContextClass();
 
-  audioContext:null,
+state.slots[i].audioContext=ctx;
 
-  envelope:null,
+const audioBuffer=
+await ctx.decodeAudioData(arrayBuffer.slice(0));
 
-  envRate:null,
+state.slots[i].audioBuffer=audioBuffer;
+state.slots[i].audioAvailable=true;
 
-  clapTime:null,
+const result=computeEnvelope(audioBuffer);
 
-  audioAvailable:false,
+state.slots[i].envelope=result.envelope;
+state.slots[i].envRate=result.envRate;
 
-  clapDetected:false,
+const clap=detectClap(result.envelope);
 
-  clapScore:null
+if(clap){
 
- };
+state.slots[i].clapTime=
+clap.index/result.envRate;
 
+state.slots[i].clapDetected=true;
+state.slots[i].clapScore=clap.score;
+state.slots[i].manualSync=false;
 
- setStatus(
-  i,
-  '音声を解析中…',
-  'analyzing'
- );
+setStatus(i,'読み込み完了','ready');
 
+}else{
 
- updateClapReadout(i);
+state.slots[i].clapTime=null;
+state.slots[i].clapDetected=false;
+state.slots[i].clapScore=null;
 
-
- try{
-
-  const arrayBuffer=
-   await file.arrayBuffer();
-
-
-  const AudioContextClass=
-   window.AudioContext||
-   window.webkitAudioContext;
-
-
-  if(!AudioContextClass){
-
-   throw new Error(
-    'このブラウザではAudioContextを利用できません。'
-   );
-  }
-
-
-  const ctx=
-   new AudioContextClass();
-
-
-  state.slots[i].audioContext=
-   ctx;
-
-
-  const audioBuffer=
-   await ctx.decodeAudioData(
-    arrayBuffer.slice(0)
-   );
-
-
-  state.slots[i].audioBuffer=
-   audioBuffer;
-
-  state.slots[i].audioAvailable=
-   true;
-
-
-  const result=
-   computeEnvelope(
-    audioBuffer
-   );
-
-
-  state.slots[i].envelope=
-   result.envelope;
-
-  state.slots[i].envRate=
-   result.envRate;
-
-
-  const clap=
-   detectClap(
-    result.envelope
-   );
-
-
-  if(!clap){
-
-   state.slots[i].clapTime=null;
-
-   state.slots[i].clapDetected=false;
-
-   state.slots[i].clapScore=null;
-
-   setStatus(
-    i,
-    '手拍子未検出',
-    ''
-   );
-
-  }else{
-
-   state.slots[i].clapTime=
-    clap.index/
-    result.envRate;
-
-   state.slots[i].clapDetected=
-    true;
-
-   state.slots[i].clapScore=
-    clap.score;
-
-
-   drawWaveform(i);
-
-   updateClapReadout(i);
-
-
-   setStatus(
-    i,
-    '読み込み完了',
-    'ready'
-   );
-
-  }
-
-
- }catch(err){
-
-  console.warn(
-   '音声解析失敗:',
-   err
-  );
-
-
-  state.slots[i].audioAvailable=
-   false;
-
-  state.slots[i].clapDetected=
-   false;
-
-  state.slots[i].clapTime=
-   null;
-
-
-  updateClapReadout(i);
-
-
-  setStatus(
-   i,
-   '音声なし・手動同期が必要',
-   ''
-  );
-
- }
-
-
- refreshControls();
+setStatus(i,'手拍子未検出 — 手動指定可','');
 
 }
 
+drawWaveform(i);
+updateClapReadout(i);
 
-function computeEnvelope(
- audioBuffer
-){
+}catch(err){
 
- const targetRate=200;
+console.warn('音声解析失敗:',err);
 
- const raw=
-  audioBuffer.getChannelData(0);
+state.slots[i].audioAvailable=false;
+state.slots[i].clapDetected=false;
+state.slots[i].clapTime=null;
 
- const sr=
-  audioBuffer.sampleRate;
+drawWaveform(i);
+updateClapReadout(i);
 
-
- const windowSize=
-  Math.max(
-   1,
-   Math.floor(
-    sr/targetRate
-   )
-  );
-
-
- const numWindows=
-  Math.floor(
-   raw.length/
-   windowSize
-  );
-
-
- const envelope=
-  new Float32Array(
-   numWindows
-  );
-
-
- for(
-  let w=0;
-  w<numWindows;
-  w++
- ){
-
-  let sumSq=0;
-
-  const start=
-   w*windowSize;
-
-
-  for(
-   let s=0;
-   s<windowSize;
-   s++
-  ){
-
-   const v=
-    raw[start+s];
-
-   sumSq+=
-    v*v;
-
-  }
-
-
-  envelope[w]=
-   Math.sqrt(
-    sumSq/
-    windowSize
-   );
-
- }
-
-
- return{
-  envelope,
-  envRate:targetRate
- };
+setStatus(i,'音声なし・手動同期が必要','');
 
 }
-
-
-function median(
- values
-){
-
- if(!values.length)return 0;
-
- const sorted=
-  Array.from(values)
-   .sort(
-    (a,b)=>a-b
-   );
-
- const mid=
-  Math.floor(
-   sorted.length/2
-  );
-
- if(sorted.length%2){
-
-  return sorted[mid];
-
- }
-
- return(
-  sorted[mid-1]+
-  sorted[mid]
- )/2;
-
-}
-
-
-function detectClap(
- envelope
-){
-
- if(
-  !envelope||
-  envelope.length<10
- ){
-  return null;
- }
-
-
- const rate=200;
-
- const preferWindowSec=8;
-
- const preferSamples=
-  Math.min(
-   envelope.length,
-   preferWindowSec*rate
-  );
-
-
- /*
-  * 音量の代表値を求める。
-  *
-  * 単純な「最大の立ち上がり」だけだと、
-  * 音声やBGMの開始部分を
-  * 手拍子と誤認しやすいため、
-  * 周囲の音量に対してどれだけ急増したか
-  * を評価する。
-  */
-
- const sampleValues=[];
-
- const sampleStep=
-  Math.max(
-   1,
-   Math.floor(
-    envelope.length/2000
-   )
-  );
-
-
- for(
-  let i=0;
-  i<envelope.length;
-  i+=sampleStep
- ){
-
-  sampleValues.push(
-   envelope[i]
-  );
-
- }
-
-
- const base=
-  median(
-   sampleValues
-  );
-
-
- const safeBase=
-  Math.max(
-   base,
-   0.00001
-  );
-
-
- let bestIdx=null;
-
- let bestScore=-Infinity;
-
-
- for(
-  let i=4;
-  i<envelope.length;
-  i++
- ){
-
-  const previous=
-   envelope[i-4];
-
-  const current=
-   envelope[i];
-
-
-  const diff=
-   current-
-   previous;
-
-
-  /*
-   * 周囲の音量に対する
-   * 相対的な立ち上がり。
-   */
-
-  const relativeRise=
-   diff/
-   safeBase;
-
-
-  /*
-   * 現在の音量があまりにも小さい
-   * 無音部分を除外。
-   */
-
-  const levelRatio=
-   current/
-   safeBase;
-
-
-  if(levelRatio<1.5){
-   continue;
-  }
-
-
-  const inPreferWindow=
-   i<preferSamples;
-
-
-  const weight=
-   inPreferWindow
-   ?1
-   :.35;
-
-
-  const score=
-   relativeRise*
-   weight;
-
-
-  if(score>bestScore){
-
-   bestScore=score;
-
-   bestIdx=i;
-
-  }
-
- }
-
-
- /*
-  * あまりにも弱い立ち上がりは
-  * 「手拍子未検出」とする。
-  */
-
- if(
-  bestIdx===null||
-  !Number.isFinite(bestScore)||
-  bestScore<2.0
- ){
-  return null;
- }
-
-
- return{
-  index:bestIdx,
-  score:bestScore
- };
-
-}
-
-
-function drawWaveform(i){
-
- const slot=
-  state.slots[i];
-
- if(!slot?.envelope)return;
-
-
- const envelope=
-  slot.envelope;
-
- const clapTime=
-  slot.clapTime;
-
- const envRate=
-  slot.envRate;
-
-
- const canvas=
-  document.getElementById(
-   `wave-${i}`
-  );
-
-
- const dpr=
-  window.devicePixelRatio||1;
-
-
- const cssW=
-  canvas.clientWidth||300;
-
- const cssH=64;
-
-
- canvas.width=
-  Math.max(
-   1,
-   Math.floor(cssW*dpr)
-  );
-
- canvas.height=
-  Math.max(
-   1,
-   Math.floor(cssH*dpr)
-  );
-
-
- const ctx=
-  canvas.getContext(
-   '2d'
-  );
-
-
- ctx.setTransform(
-  dpr,
-  0,
-  0,
-  dpr,
-  0,
-  0
- );
-
-
- ctx.clearRect(
-  0,
-  0,
-  cssW,
-  cssH
- );
-
-
- ctx.fillStyle=
-  '#161b26';
-
- ctx.fillRect(
-  0,
-  0,
-  cssW,
-  cssH
- );
-
-
- let max=0;
-
-
- for(
-  let j=0;
-  j<envelope.length;
-  j++
- ){
-
-  if(
-   envelope[j]>max
-  ){
-
-   max=
-    envelope[j];
-
-  }
-
- }
-
-
- max=max||1;
-
-
- const step=
-  Math.max(
-   1,
-   Math.ceil(
-    envelope.length/
-    cssW
-   )
-  );
-
-
- ctx.fillStyle=
-  '#3d5a99';
-
-
- for(
-  let x=0;
-  x<cssW;
-  x++
- ){
-
-  const idx=
-   x*step;
-
-  let peak=0;
-
-
-  for(
-   let k=0;
-   k<step;
-   k++
-  ){
-
-   const v=
-    envelope[idx+k]||
-    0;
-
-   if(v>peak){
-    peak=v;
-   }
-
-  }
-
-
-  const h=
-   Math.max(
-    1,
-    (peak/max)*
-    (cssH-4)
-   );
-
-
-  ctx.fillRect(
-   x,
-   (cssH-h)/2,
-   1,
-   h
-  );
-
- }
-
-
- if(
-  clapTime!==null&&
-  Number.isFinite(clapTime)
- ){
-
-  const clapIdx=
-   Math.round(
-    clapTime*
-    envRate
-   );
-
-
-  const clapX=
-   Math.min(
-    cssW-1,
-    Math.max(
-     0,
-     Math.floor(
-      clapIdx/
-      step
-     )
-    )
-   );
-
-
-  ctx.strokeStyle=
-   '#e8604c';
-
-  ctx.lineWidth=1.5;
-
-
-  ctx.beginPath();
-
-  ctx.moveTo(
-   clapX+.5,
-   0
-  );
-
-  ctx.lineTo(
-   clapX+.5,
-   cssH
-  );
-
-  ctx.stroke();
-
- }
-
-}
-
-
-function updateClapReadout(i){
-
- const t=
-  state.slots[i]?.clapTime;
-
-
- document.getElementById(
-  `claptime-${i}`
- ).textContent=
-  formatTime(t);
-
-}
-
-
-function nudgeClap(
- i,
- dir
-){
-
- const slot=
-  state.slots[i];
-
- if(!slot)return;
-
-
- const fps=
-  parseFloat(
-   fpsInput.value
-  )||30;
-
-
- if(
-  slot.clapTime===null
- ){
-
-  slot.clapTime=0;
-
-  slot.clapDetected=false;
-
- }
-
-
- slot.clapTime=
-  Math.max(
-   0,
-   slot.clapTime+
-   dir*(1/fps)
-  );
-
-
- slot.clapDetected=true;
-
-
- updateClapReadout(i);
-
-
- if(slot.envelope){
-
-  drawWaveform(i);
-
- }
-
-
- if(
-  syncPanel.classList.contains(
-   'visible'
-  )
- ){
-
-  renderOffsetsTable();
-
- }
-
-
- refreshControls();
-
-}
-
-
-function formatTime(
- sec
-){
-
- if(
-  sec===null||
-  sec===undefined||
-  !Number.isFinite(sec)
- ){
-  return '—';
- }
-
-
- const m=
-  Math.floor(
-   sec/60
-  );
-
-
- const s=
-  (sec%60)
-   .toFixed(2);
-
-
- return(
-  `${m}:`+
-  s.padStart(5,'0')
- );
-
-}
-
-
-function activeSlots(){
-
- return state.slots
-  .map(
-   (s,i)=>({
-
-    ...s,
-
-    index:i,
-
-    meta:SLOT_META[i]
-
-   })
-  )
-  .filter(
-   s=>
-    s.file&&
-    s.clapTime!==null&&
-    Number.isFinite(
-     s.clapTime
-    )
-  );
-
-}
-
-
-function renderOffsetsTable(){
-
- const active=
-  activeSlots();
-
-
- if(!active.length)return;
-
-
- const ref=
-  active[0];
-
-
- let rows=`
-
- <tr>
-
-  <th>カメラ</th>
-
-  <th>手拍子位置</th>
-
-  <th>基準とのオフセット</th>
-
-  <th>フレーム換算</th>
-
- </tr>
-
- `;
-
-
- const fps=
-  parseFloat(
-   fpsInput.value
-  )||30;
-
-
- active.forEach(
-  s=>{
-
-   const offset=
-    s.clapTime-
-    ref.clapTime;
-
-
-   const cls=
-    Math.abs(offset)<.001
-    ?'offset-zero'
-    :'offset-positive';
-
-
-   const frames=
-    Math.round(
-     offset*
-     fps
-    );
-
-
-   rows+=`
-
-   <tr>
-
-    <td>
-     ${s.meta.label}
-    </td>
-
-    <td>
-     ${formatTime(s.clapTime)}
-    </td>
-
-    <td class="${cls}">
-
-     ${offset>=0?'+':''}
-     ${offset.toFixed(3)}s
-
-    </td>
-
-    <td>
-
-     ${frames>=0?'+':''}
-     ${frames} frame
-
-    </td>
-
-   </tr>
-
-   `;
-
-  }
- );
-
-
- offsetsTable.innerHTML=
-  rows;
-
-
- syncPanel.classList.add(
-  'visible'
- );
-
-}
-
-
-function refreshControls(){
-
- const active=
-  activeSlots();
-
-
- analyzeBtn.disabled=
-  active.length<1;
-
-
- exportBtn.disabled=
-  !syncPanel.classList.contains(
-   'visible'
-  );
-
-}
-
-
-analyzeBtn.addEventListener(
- 'click',
- ()=>{
-
-  const all=
-   state.slots.filter(
-    s=>
-     s&&
-     s.file
-   );
-
-
-  const active=
-   activeSlots();
-
-
-  if(!active.length)return;
-
-
-  renderOffsetsTable();
-
-
-  buildPreviewStage(
-   active
-  );
-
-
-  exportBtn.disabled=false;
-
-
-  if(
-   active.length<
-   all.length
-  ){
-
-   statusLine.innerHTML=
-    `<strong>`+
-    `${active.length}本の動画を同期しました。`+
-    `</strong>`+
-
-    `<span style="color:var(--accent)">`+
-    ` ⚠ ${all.length-active.length}本は`+
-    `手拍子未検出です。±ボタンで手動指定してください。`+
-    `</span>`;
-
-  }else{
-
-   statusLine.innerHTML=
-    `<strong>`+
-    `${active.length}本の動画を同期しました。`+
-    `</strong>`;
-
-  }
-
-
-  revealPoseSection(
-   active
-  );
-
- });
-
-
-exportBtn.addEventListener(
- 'click',
- ()=>{
-
-  const active=
-   activeSlots();
-
-
-  if(!active.length)return;
-
-
-  const ref=
-   active[0];
-
-
-  const data={
-
-   frameRate:
-    parseFloat(
-     fpsInput.value
-    )||30,
-
-
-   cameras:
-    active.map(
-     s=>({
-
-      slot:s.index,
-
-      angle:s.meta.label,
-
-      filename:s.file.name,
-
-      clapTimeSeconds:
-       Number(
-        s.clapTime.toFixed(4)
-       ),
-
-      offsetFromReferenceSeconds:
-       Number(
-        (
-         s.clapTime-
-         ref.clapTime
-        ).toFixed(4)
-       )
-
-     })
-    )
-
-  };
-
-
-  const blob=
-   new Blob(
-    [
-     JSON.stringify(
-      data,
-      null,
-      2
-     )
-    ],
-    {
-     type:
-      'application/json'
-    }
-   );
-
-
-  const url=
-   URL.createObjectURL(
-    blob
-   );
-
-
-  const a=
-   document.createElement(
-    'a'
-   );
-
-
-  a.href=url;
-
-  a.download=
-   'sync-offsets.json';
-
-  a.click();
-
-
-  setTimeout(
-   ()=>{
-    URL.revokeObjectURL(
-     url
-    );
-   },
-   1000
-  );
-
- });
-
-
-function clearPreviewUrls(){
-
- state._previewUrls
-  .forEach(
-   url=>{
-    try{
-     URL.revokeObjectURL(
-      url
-     );
-    }catch{}
-   }
-  );
-
-
- state._previewUrls=[];
-
-}
-
-
-function buildPreviewStage(
- active
-){
-
- clearPreviewUrls();
-
-
- previewStage.innerHTML='';
-
-
- previewLabel.style.display=
-  'block';
-
-
- previewControls.style.display=
-  'flex';
-
-
- previewStage.classList.add(
-  'visible'
- );
-
-
- active.forEach(
-  s=>{
-
-   const wrap=
-    document.createElement(
-     'div'
-    );
-
-
-   const vid=
-    document.createElement(
-     'video'
-    );
-
-
-   vid.controls=true;
-
-   vid.playsInline=true;
-
-   vid.muted=true;
-
-
-   const url=
-    URL.createObjectURL(
-     s.file
-    );
-
-
-   state._previewUrls.push(
-    url
-   );
-
-
-   vid.src=url;
-
-
-   vid.id=
-    `preview-vid-${s.index}`;
-
-
-   wrap.appendChild(
-    vid
-   );
-
-
-   const cap=
-    document.createElement(
-     'div'
-    );
-
-
-   cap.className='cap';
-
-
-   cap.textContent=
-    `${s.meta.label} — clap @ ${formatTime(s.clapTime)}`;
-
-
-   wrap.appendChild(
-    cap
-   );
-
-
-   previewStage.appendChild(
-    wrap
-   );
-
-  }
- );
-
-
- state._previewActive=
-  active;
-
-}
-
-
-async function seekTo(
- video,
- time,
- timeoutMs=5000
-){
-
- if(!video){
-  throw new Error(
-   '動画要素がありません。'
-  );
- }
-
-
- const duration=
-  Number.isFinite(
-   video.duration
-  )
-  ?video.duration
-  :Infinity;
-
-
- const target=
-  Math.max(
-   0,
-   Math.min(
-    time,
-    Math.max(
-     0,
-     duration-
-     0.001
-    )
-   )
-  );
-
-
- if(
-  Math.abs(
-   video.currentTime-
-   target
-  )<0.001
- ){
-
-  return;
-
- }
-
-
- return new Promise(
-  (resolve,reject)=>{
-
-   let finished=false;
-
-   let timer=null;
-
-
-   const cleanup=()=>{
-
-    video.removeEventListener(
-     'seeked',
-     onSeeked
-    );
-
-    video.removeEventListener(
-     'error',
-     onError
-    );
-
-    if(timer){
-
-     clearTimeout(
-      timer
-     );
-
-     timer=null;
-
-    }
-
-   };
-
-
-   const finish=()=>{
-
-    if(finished)return;
-
-    finished=true;
-
-    cleanup();
-
-    resolve();
-
-   };
-
-
-   const fail=(
-    error
-   )=>{
-
-    if(finished)return;
-
-    finished=true;
-
-    cleanup();
-
-    reject(
-     error instanceof Error
-     ?error
-     :new Error(
-      '動画のシークに失敗しました。'
-     )
-    );
-
-   };
-
-
-   const onSeeked=()=>{
-    finish();
-   };
-
-
-   const onError=()=>{
-    fail(
-     new Error(
-      '動画のシークに失敗しました。'
-     )
-    );
-   };
-
-
-   video.addEventListener(
-    'seeked',
-    onSeeked
-   );
-
-
-   video.addEventListener(
-    'error',
-    onError
-   );
-
-
-   timer=
-    setTimeout(
-     ()=>{
-      fail(
-       new Error(
-        `動画シークが${timeoutMs}ms以内に完了しませんでした。`
-       )
-      );
-     },
-     timeoutMs
-    );
-
-
-   try{
-
-    video.currentTime=
-     target;
-
-   }catch(err){
-
-    fail(err);
-
-   }
-
-  }
- );
-
-}
-
-
-document
- .getElementById(
-  'playSyncBtn'
- )
- .addEventListener(
-  'click',
-  async()=>{
-
-   const active=
-    state._previewActive;
-
-
-   if(!active)return;
-
-
-   try{
-
-    await Promise.all(
-     active.map(
-      async s=>{
-
-       const vid=
-        document.getElementById(
-         `preview-vid-${s.index}`
-        );
-
-
-       await seekTo(
-        vid,
-        s.clapTime
-       );
-
-      }
-     )
-    );
-
-
-    const playResults=
-     await Promise.allSettled(
-      active.map(
-       s=>
-        document
-         .getElementById(
-          `preview-vid-${s.index}`
-         )
-         .play()
-     )
-    );
-
-
-    const failed=
-     playResults.filter(
-      r=>
-       r.status==='rejected'
-     );
-
-
-    if(failed.length){
-
-     statusLine.textContent=
-      '同期再生を開始できない動画があります。';
-
-    }
-
-   }catch(err){
-
-    console.error(err);
-
-    statusLine.textContent=
-     '同期再生に失敗しました。';
-
-   }
-
-  }
- );
-
-
-document
- .getElementById(
-  'pauseSyncBtn'
- )
- .addEventListener(
-  'click',
-  ()=>{
-
-   const active=
-    state._previewActive;
-
-
-   if(!active)return;
-
-
-   active.forEach(
-    s=>{
-
-     const vid=
-      document.getElementById(
-       `preview-vid-${s.index}`
-      );
-
-
-     if(vid){
-      vid.pause();
-     }
-
-    }
-   );
-
-  }
- );
-
-
-buildSlots();
 
 refreshControls();
 
+const count=
+state.slots.filter(s=>s&&s.file).length;
 
-const poseSectionLabel=
- document.getElementById(
-  'poseSectionLabel'
- );
-
-
-const posePanel=
- document.getElementById(
-  'posePanel'
- );
-
-
-const poseSourceSelect=
- document.getElementById(
-  'poseSourceSelect'
- );
-
-
-const runPoseBtn=
- document.getElementById(
-  'runPoseBtn'
- );
-
-
-const exportPoseBtn=
- document.getElementById(
-  'exportPoseBtn'
- );
-
-
-const poseProgress=
- document.getElementById(
-  'poseProgress'
- );
-
-
-const poseProgressText=
- document.getElementById(
-  'poseProgressText'
- );
-
-
-const poseProgressFill=
- document.getElementById(
-  'poseProgressFill'
- );
-
-
-const poseStage=
- document.getElementById(
-  'poseStage'
- );
-
-
-const poseCanvas=
- document.getElementById(
-  'poseCanvas'
- );
-
-
-function revealPoseSection(
- active
-){
-
- poseSectionLabel.style.display=
-  'block';
-
-
- posePanel.classList.add(
-  'visible'
- );
-
-
- poseSourceSelect.innerHTML=
-  active.map(
-   s=>
-    `<option value="${s.index}">
-     ${s.meta.label} — ${s.file.name}
-    </option>`
-  ).join(
-   ''
-  );
+statusLine.textContent=
+`${count}本の動画を選択しています。`;
 
 }
 
+function computeEnvelope(audioBuffer){
+
+const targetRate=200;
+
+const raw=audioBuffer.getChannelData(0);
+const sr=audioBuffer.sampleRate;
+
+const windowSize=Math.max(1,Math.floor(sr/targetRate));
+
+const numWindows=Math.floor(raw.length/windowSize);
+
+const envelope=new Float32Array(numWindows);
+
+for(let w=0;w<numWindows;w++){
+
+let sumSq=0;
+const start=w*windowSize;
+
+for(let s=0;s<windowSize;s++){
+
+const v=raw[start+s]||0;
+sumSq+=v*v;
+
+}
+
+envelope[w]=Math.sqrt(sumSq/windowSize);
+
+}
+
+return{
+envelope,
+envRate:targetRate
+};
+
+}
+
+function median(values){
+
+if(!values.length)return 0;
+
+const sorted=Array.from(values).sort((a,b)=>a-b);
+
+const mid=Math.floor(sorted.length/2);
+
+return sorted.length%2
+?sorted[mid]
+:(sorted[mid-1]+sorted[mid])/2;
+
+}
+
+function detectClap(envelope){
+
+if(!envelope||envelope.length<10){
+return null;
+}
+
+const rate=200;
+const preferWindowSec=8;
+
+const preferSamples=
+Math.min(envelope.length,preferWindowSec*rate);
+
+const sampleValues=[];
+
+const sampleStep=
+Math.max(1,Math.floor(envelope.length/2000));
+
+for(let i=0;i<envelope.length;i+=sampleStep){
+sampleValues.push(envelope[i]);
+}
+
+const base=median(sampleValues);
+const safeBase=Math.max(base,0.00001);
+
+let bestIdx=null;
+let bestScore=-Infinity;
+
+for(let i=4;i<envelope.length;i++){
+
+const previous=envelope[i-4];
+const current=envelope[i];
+
+const diff=current-previous;
+const relativeRise=diff/safeBase;
+const levelRatio=current/safeBase;
+
+if(levelRatio<1.5)continue;
+
+const weight=i<preferSamples?1:.35;
+
+const score=relativeRise*weight;
+
+if(score>bestScore){
+bestScore=score;
+bestIdx=i;
+}
+
+}
+
+if(
+bestIdx===null||
+!Number.isFinite(bestScore)||
+bestScore<2.0
+){
+return null;
+}
+
+return{
+index:bestIdx,
+score:bestScore
+};
+
+}
+
+function drawWaveform(i){
+
+const slot=state.slots[i];
+
+if(!slot?.envelope)return;
+
+const envelope=slot.envelope;
+const clapTime=slot.clapTime;
+const envRate=slot.envRate;
+
+const canvas=document.getElementById(`wave-${i}`);
+
+const dpr=window.devicePixelRatio||1;
+const cssW=canvas.clientWidth||300;
+const cssH=64;
+
+canvas.width=Math.max(1,Math.floor(cssW*dpr));
+canvas.height=Math.max(1,Math.floor(cssH*dpr));
+
+const ctx=canvas.getContext('2d');
+
+ctx.setTransform(dpr,0,0,dpr,0,0);
+
+ctx.clearRect(0,0,cssW,cssH);
+
+ctx.fillStyle='#161b26';
+ctx.fillRect(0,0,cssW,cssH);
+
+let max=0;
+
+for(let j=0;j<envelope.length;j++){
+if(envelope[j]>max)max=envelope[j];
+}
+
+max=max||1;
+
+const step=Math.max(1,Math.ceil(envelope.length/cssW));
+
+ctx.fillStyle='#3d5a99';
+
+for(let x=0;x<cssW;x++){
+
+const idx=x*step;
+let peak=0;
+
+for(let k=0;k<step;k++){
+
+const v=envelope[idx+k]||0;
+
+if(v>peak)peak=v;
+
+}
+
+const h=Math.max(1,(peak/max)*(cssH-4));
+
+ctx.fillRect(
+x,
+(cssH-h)/2,
+1,
+h
+);
+
+}
+
+if(
+clapTime!==null&&
+Number.isFinite(clapTime)
+){
+
+const clapIdx=Math.round(clapTime*envRate);
+
+const clapX=Math.min(
+cssW-1,
+Math.max(
+0,
+Math.floor(clapIdx/step)
+)
+);
+
+ctx.strokeStyle='#e8604c';
+ctx.lineWidth=1.5;
+
+ctx.beginPath();
+
+ctx.moveTo(clapX+.5,0);
+ctx.lineTo(clapX+.5,cssH);
+
+ctx.stroke();
+
+}
+
+}
+
+function updateClapReadout(i){
+
+const t=state.slots[i]?.clapTime;
+
+document.getElementById(`claptime-${i}`).textContent=
+formatTime(t);
+
+}
+
+function nudgeClap(i,dir){
+
+const slot=state.slots[i];
+
+if(!slot)return;
+
+const fps=parseFloat(fpsInput.value)||30;
+
+if(slot.clapTime===null){
+
+slot.clapTime=0;
+slot.clapDetected=false;
+
+}
+
+slot.clapTime=Math.max(
+0,
+slot.clapTime+dir*(1/fps)
+);
+
+slot.clapDetected=true;
+slot.manualSync=true;
+
+setStatus(
+i,
+'手動同期位置',
+'ready'
+);
+
+invalidatePoseData();
+
+updateClapReadout(i);
+
+if(slot.envelope){
+drawWaveform(i);
+}
+
+if(syncPanel.classList.contains('visible')){
+renderOffsetsTable();
+buildPreviewStage(activeSlots());
+}
+
+refreshControls();
+
+}
+
+function formatTime(sec){
+
+if(
+sec===null||
+sec===undefined||
+!Number.isFinite(sec)
+){
+return '—';
+}
+
+const m=Math.floor(sec/60);
+const s=(sec%60).toFixed(2);
+
+return `${m}:${s.padStart(5,'0')}`;
+
+}
+
+function selectedSlots(){
+
+return state.slots
+.map((s,i)=>s?({...s,index:i,meta:SLOT_META[i]}):null)
+.filter(s=>s&&s.file);
+
+}
+
+function activeSlots(){
+
+return selectedSlots().filter(
+s=>
+s.clapTime!==null&&
+Number.isFinite(s.clapTime)
+);
+
+}
+
+function renderOffsetsTable(){
+
+const active=activeSlots();
+
+if(!active.length)return;
+
+const ref=active[0];
+
+const fps=parseFloat(fpsInput.value)||30;
+
+let rows=`
+
+<tr>
+<th>カメラ</th>
+<th>手拍子位置</th>
+<th>基準とのオフセット</th>
+<th>フレーム換算</th>
+<th>方法</th>
+</tr>
+`;
+
+active.forEach(s=>{
+
+const offset=s.clapTime-ref.clapTime;
+
+const cls=Math.abs(offset)<.001
+?'offset-zero'
+:'offset-positive';
+
+const frames=Math.round(offset*fps);
+
+const method=s.manualSync
+?'手動'
+:'自動';
+
+rows+=`
+
+<tr>
+
+<td>${s.meta.label}</td>
+
+<td>${formatTime(s.clapTime)}</td>
+
+<td class="${cls}">
+${offset>=0?'+':''}${offset.toFixed(3)}s
+</td>
+
+<td>
+${frames>=0?'+':''}${frames} frame
+</td>
+
+<td>${method}</td>
+
+</tr>
+`;
+
+});
+
+offsetsTable.innerHTML=rows;
+
+syncPanel.classList.add('visible');
+
+}
+
+function refreshControls(){
+
+/*
+ * V3.3重要修正
+ *
+ * 以前は activeSlots() を使っていたため、
+ * 「手拍子検出済み」でない動画しかない場合、
+ * 手拍子検出ボタンそのものが押せなくなる
+ * デッドロックが発生していた。
+ *
+ * ここでは「動画が選択されているか」だけを見る。
+ */
+
+const hasVideo=
+state.slots.some(
+s=>s&&s.file
+);
+
+analyzeBtn.disabled=!hasVideo;
+
+exportBtn.disabled=
+!syncPanel.classList.contains('visible');
+
+}
+
+async function analyzeAllClaps(){
+
+const videos=selectedSlots();
+
+if(!videos.length){
+
+statusLine.textContent=
+'先に動画を1本以上選択してください。';
+
+refreshControls();
+
+return;
+
+}
+
+analyzeBtn.disabled=true;
+
+statusLine.textContent=
+'手拍子位置を再解析しています…';
+
+let detected=0;
+let manual=0;
+let failed=0;
+
+for(const s of videos){
+
+const slot=state.slots[s.index];
+
+setStatus(
+s.index,
+'手拍子を解析中…',
+'analyzing'
+);
+
+try{
+
+/*
+ * 手動指定済みの場合は
+ * ユーザーの位置を保持する。
+ */
+
+if(
+slot.manualSync&&
+slot.clapTime!==null&&
+Number.isFinite(slot.clapTime)
+){
+
+manual++;
+
+setStatus(
+s.index,
+'手動同期位置を保持',
+'ready'
+);
+
+continue;
+
+}
+
+if(!slot.envelope){
+
+if(slot.audioBuffer){
+
+const result=
+computeEnvelope(slot.audioBuffer);
+
+slot.envelope=result.envelope;
+slot.envRate=result.envRate;
+
+}else{
+
+throw new Error('音声データがありません。');
+
+}
+
+}
+
+const clap=
+detectClap(slot.envelope);
+
+if(clap){
+
+slot.clapTime=
+clap.index/slot.envRate;
+
+slot.clapDetected=true;
+slot.clapScore=clap.score;
+slot.manualSync=false;
+
+detected++;
+
+setStatus(
+s.index,
+'手拍子検出完了',
+'ready'
+);
+
+}else{
+
+slot.clapTime=null;
+slot.clapDetected=false;
+slot.clapScore=null;
+
+failed++;
+
+setStatus(
+s.index,
+'手拍子未検出 — ±で手動指定',
+''
+);
+
+}
+
+drawWaveform(s.index);
+updateClapReadout(s.index);
+
+}catch(err){
+
+console.warn(
+`clap detection slot ${s.index}:`,
+err
+);
+
+slot.clapTime=null;
+slot.clapDetected=false;
+
+failed++;
+
+setStatus(
+s.index,
+'音声解析不可 — 手動指定',
+''
+);
+
+drawWaveform(s.index);
+updateClapReadout(s.index);
+
+}
+
+await new Promise(r=>setTimeout(r,0));
+
+}
+
+const active=activeSlots();
+
+if(active.length){
+
+renderOffsetsTable();
+buildPreviewStage(active);
+
+exportBtn.disabled=false;
+
+revealPoseSection(active);
+
+}
+
+if(failed){
+
+statusLine.innerHTML=
+`<strong>${active.length}本を同期対象にしました。</strong>`+
+` <span style="color:var(--accent)">`+
+`${failed}本は自動検出できませんでした。±ボタンで手動指定してください。`+
+`</span>`;
+
+}else{
+
+statusLine.innerHTML=
+`<strong>${active.length}本の動画を同期しました。</strong>`+
+(manual?` 手動指定 ${manual}本。`:'')+
+` 自動検出 ${detected}本。`;
+
+}
+
+refreshControls();
+
+}
+
+analyzeBtn.addEventListener(
+'click',
+analyzeAllClaps
+);
+
+exportBtn.addEventListener(
+'click',
+()=>{
+
+const active=activeSlots();
+
+if(!active.length)return;
+
+const ref=active[0];
+
+const data={
+
+version:'V3.3',
+
+frameRate:parseFloat(fpsInput.value)||30,
+
+referenceSlot:ref.index,
+
+cameras:active.map(s=>({
+
+slot:s.index,
+
+angle:s.meta.label,
+
+filename:s.file.name,
+
+clapTimeSeconds:Number(
+s.clapTime.toFixed(4)
+),
+
+offsetFromReferenceSeconds:Number(
+(s.clapTime-ref.clapTime).toFixed(4)
+),
+
+syncMethod:s.manualSync?'manual':'automatic',
+
+clapScore:
+Number.isFinite(s.clapScore)
+?Number(s.clapScore.toFixed(4))
+:null
+
+}))
+
+};
+
+const blob=new Blob(
+[
+JSON.stringify(data,null,2)
+],
+{type:'application/json'}
+);
+
+const url=URL.createObjectURL(blob);
+
+const a=document.createElement('a');
+
+a.href=url;
+a.download='sync-offsets-V3.3.json';
+
+a.click();
+
+setTimeout(
+()=>URL.revokeObjectURL(url),
+1000
+);
+
+});
+
+function clearPreviewUrls(){
+
+state._previewUrls.forEach(url=>{
+try{
+URL.revokeObjectURL(url);
+}catch{}
+});
+
+state._previewUrls=[];
+
+}
+
+function buildPreviewStage(active){
+
+clearPreviewUrls();
+
+previewStage.innerHTML='';
+
+if(!active.length){
+
+previewStage.classList.remove('visible');
+previewLabel.style.display='none';
+previewControls.style.display='none';
+
+return;
+
+}
+
+previewLabel.style.display='block';
+previewControls.style.display='flex';
+previewStage.classList.add('visible');
+
+active.forEach(s=>{
+
+const wrap=document.createElement('div');
+
+const vid=document.createElement('video');
+
+vid.controls=true;
+vid.playsInline=true;
+vid.muted=true;
+
+const url=URL.createObjectURL(s.file);
+
+state._previewUrls.push(url);
+
+vid.src=url;
+vid.id=`preview-vid-${s.index}`;
+
+wrap.appendChild(vid);
+
+const cap=document.createElement('div');
+
+cap.className='cap';
+
+cap.textContent=
+`${s.meta.label} — clap @ ${formatTime(s.clapTime)}`;
+
+wrap.appendChild(cap);
+
+previewStage.appendChild(wrap);
+
+});
+
+state._previewActive=active;
+
+}
+
+async function seekTo(video,time,timeoutMs=5000){
+
+if(!video){
+throw new Error('動画要素がありません。');
+}
+
+const duration=
+Number.isFinite(video.duration)
+?video.duration
+:Infinity;
+
+const target=Math.max(
+0,
+Math.min(
+time,
+Math.max(0,duration-.001)
+)
+);
+
+if(
+Math.abs(video.currentTime-target)<.001
+){
+return;
+}
+
+return new Promise((resolve,reject)=>{
+
+let finished=false;
+let timer=null;
+
+const cleanup=()=>{
+
+video.removeEventListener('seeked',onSeeked);
+video.removeEventListener('error',onError);
+
+if(timer){
+clearTimeout(timer);
+timer=null;
+}
+
+};
+
+const finish=()=>{
+
+if(finished)return;
+
+finished=true;
+cleanup();
+resolve();
+
+};
+
+const fail=error=>{
+
+if(finished)return;
+
+finished=true;
+cleanup();
+
+reject(
+error instanceof Error
+?error
+:new Error('動画のシークに失敗しました。')
+);
+
+};
+
+const onSeeked=()=>finish();
+
+const onError=()=>fail(
+new Error('動画のシークに失敗しました。')
+);
+
+video.addEventListener('seeked',onSeeked);
+video.addEventListener('error',onError);
+
+timer=setTimeout(
+()=>fail(
+new Error(
+`動画シークが${timeoutMs}ms以内に完了しませんでした。`
+)
+),
+timeoutMs
+);
+
+try{
+
+video.currentTime=target;
+
+}catch(err){
+
+fail(err);
+
+}
+
+});
+
+}
+
+document.getElementById('playSyncBtn').addEventListener(
+'click',
+async()=>{
+
+const active=state._previewActive;
+
+if(!active)return;
+
+try{
+
+await Promise.all(
+active.map(async s=>{
+
+const vid=
+document.getElementById(
+`preview-vid-${s.index}`
+);
+
+await seekTo(vid,s.clapTime);
+
+})
+);
+
+const playResults=
+await Promise.allSettled(
+active.map(
+s=>
+document
+.getElementById(
+`preview-vid-${s.index}`
+)
+.play()
+)
+);
+
+const failed=
+playResults.filter(
+r=>r.status==='rejected'
+);
+
+if(failed.length){
+
+statusLine.textContent=
+'同期再生を開始できない動画があります。';
+
+}
+
+}catch(err){
+
+console.error(err);
+
+statusLine.textContent=
+'同期再生に失敗しました。';
+
+}
+
+});
+
+document.getElementById('pauseSyncBtn').addEventListener(
+'click',
+()=>{
+
+const active=state._previewActive;
+
+if(!active)return;
+
+active.forEach(s=>{
+
+const vid=
+document.getElementById(
+`preview-vid-${s.index}`
+);
+
+if(vid)vid.pause();
+
+});
+
+});
+
+fpsInput.addEventListener(
+'change',
+()=>{
+
+const active=activeSlots();
+
+if(active.length){
+
+renderOffsetsTable();
+buildPreviewStage(active);
+
+}
+
+});
+
+buildSlots();
+refreshControls();
+
+const poseSectionLabel=
+document.getElementById('poseSectionLabel');
+
+const posePanel=
+document.getElementById('posePanel');
+
+const poseSourceSelect=
+document.getElementById('poseSourceSelect');
+
+const runPoseBtn=
+document.getElementById('runPoseBtn');
+
+const exportPoseBtn=
+document.getElementById('exportPoseBtn');
+
+const poseProgress=
+document.getElementById('poseProgress');
+
+const poseProgressText=
+document.getElementById('poseProgressText');
+
+const poseProgressFill=
+document.getElementById('poseProgressFill');
+
+const poseStage=
+document.getElementById('poseStage');
+
+const poseCanvas=
+document.getElementById('poseCanvas');
+
+function revealPoseSection(active){
+
+poseSectionLabel.style.display='block';
+
+posePanel.classList.add('visible');
+
+poseSourceSelect.innerHTML=
+active.map(
+s=>
+`<option value="${s.index}">
+${s.meta.label} — ${s.file.name}
+</option>`
+).join('');
+
+}
 
 runPoseBtn.addEventListener(
- 'click',
- ()=>{
+'click',
+()=>{
 
-  const slotIndex=
-   parseInt(
-    poseSourceSelect.value,
-    10
-   );
+const slotIndex=
+parseInt(
+poseSourceSelect.value,
+10
+);
 
+if(Number.isNaN(slotIndex))return;
 
-  if(
-   Number.isNaN(
-    slotIndex
-   )
-  ){
-   return;
-  }
+window.runPoseEstimationV2(slotIndex);
 
-
-  window.runPoseEstimationV2(
-   slotIndex
-  );
-
- });
-
+});
 
 exportPoseBtn.addEventListener(
- 'click',
- ()=>{
+'click',
+()=>{
 
-  if(!state.poseData)return;
+if(!state.poseData)return;
 
+const blob=new Blob(
+[
+JSON.stringify(
+state.poseData,
+null,
+2
+)
+],
+{type:'application/json'}
+);
 
-  const blob=
-   new Blob(
-    [
-     JSON.stringify(
-      state.poseData,
-      null,
-      2
-     )
-    ],
-    {
-     type:
-      'application/json'
-    }
-   );
+const url=URL.createObjectURL(blob);
 
+const a=document.createElement('a');
 
-  const url=
-   URL.createObjectURL(
-    blob
-   );
+a.href=url;
 
+const filename=
+state.poseData.sourceFilename||'pose';
 
-  const a=
-   document.createElement(
-    'a'
-   );
+a.download=
+`pose-${filename.replace(/\.[^.]+$/,'')}.json`;
 
+a.click();
 
-  a.href=url;
+setTimeout(
+()=>URL.revokeObjectURL(url),
+1000
+);
 
-
-  const filename=
-   state.poseData
-    .sourceFilename||
-   'pose';
-
-
-  a.download=
-   `pose-${filename.replace(
-    /\.[^.]+$/,
-    ''
-   )}.json`;
-
-
-  a.click();
-
-
-  setTimeout(
-   ()=>{
-    URL.revokeObjectURL(
-     url
-    );
-   },
-   1000
-  );
-
- });
+});
 
 </script>
 
-
 <script type="module">
 
-
 import{
- HolisticLandmarker,
- FilesetResolver
+HolisticLandmarker,
+FilesetResolver
 }
 from'@mediapipe/tasks-vision';
 
-
-let holisticLandmarkerInstance=
- null;
-
+let holisticLandmarkerInstance=null;
 
 async function getHolisticLandmarker(){
 
- if(
-  holisticLandmarkerInstance
- ){
-  return holisticLandmarkerInstance;
- }
-
-
- const filesetResolver=
-  await FilesetResolver.forVisionTasks(
-   'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm'
-  );
-
-
- holisticLandmarkerInstance=
-  await HolisticLandmarker.createFromOptions(
-   filesetResolver,
-   {
-
-    baseOptions:{
-
-     modelAssetPath:
-      'https://storage.googleapis.com/mediapipe-models/holistic_landmarker/holistic_landmarker/float16/latest/holistic_landmarker.task',
-
-     delegate:'CPU'
-
-    },
-
-    runningMode:'VIDEO'
-
-   }
-  );
-
-
- return holisticLandmarkerInstance;
-
+if(holisticLandmarkerInstance){
+return holisticLandmarkerInstance;
 }
 
+const filesetResolver=
+await FilesetResolver.forVisionTasks(
+'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm'
+);
+
+holisticLandmarkerInstance=
+await HolisticLandmarker.createFromOptions(
+filesetResolver,
+{
+
+baseOptions:{
+
+modelAssetPath:
+'https://storage.googleapis.com/mediapipe-models/holistic_landmarker/holistic_landmarker/float16/latest/holistic_landmarker.task',
+
+delegate:'CPU'
+
+},
+
+runningMode:'VIDEO'
+
+}
+);
+
+return holisticLandmarkerInstance;
+
+}
 
 function unwrapLandmarks(x){
 
- if(!x){
-  return null;
- }
+if(!x)return null;
 
-
- if(
-  Array.isArray(x)&&
-  x.length&&
-  Array.isArray(x[0])
- ){
-
-  return x[0].length
-   ?x[0]
-   :null;
-
- }
-
-
- if(
-  Array.isArray(x)&&
-  x.length&&
-  typeof x[0]?.x==='number'
- ){
-
-  return x;
-
- }
-
-
- return null;
-
-}
-
-
-function stripLm(
- landmarks
+if(
+Array.isArray(x)&&
+x.length&&
+Array.isArray(x[0])
 ){
 
- if(!landmarks){
-  return null;
- }
-
-
- return landmarks.map(
-  p=>({
-
-   x:Number(
-    (p.x||0).toFixed(5)
-   ),
-
-   y:Number(
-    (p.y||0).toFixed(5)
-   ),
-
-   z:Number(
-    (p.z||0).toFixed(5)
-   ),
-
-   visibility:
-    p.visibility!==undefined
-    ?Number(
-      p.visibility.toFixed(3)
-     )
-    :undefined
-
-  })
- );
+return x[0].length?x[0]:null;
 
 }
 
-
-function waitForVideoMetadata(
- video
+if(
+Array.isArray(x)&&
+x.length&&
+typeof x[0]?.x==='number'
 ){
 
- return new Promise(
-  (resolve,reject)=>{
-
-   if(
-    video.readyState>=1&&
-    Number.isFinite(
-     video.duration
-    )
-   ){
-
-    resolve();
-
-    return;
-
-   }
-
-
-   const onLoaded=()=>{
-
-    cleanup();
-
-    resolve();
-
-   };
-
-
-   const onError=()=>{
-
-    cleanup();
-
-    reject(
-     new Error(
-      '動画の読み込みに失敗しました。'
-     )
-    );
-
-   };
-
-
-   const cleanup=()=>{
-
-    video.removeEventListener(
-     'loadedmetadata',
-     onLoaded
-    );
-
-    video.removeEventListener(
-     'error',
-     onError
-    );
-
-   };
-
-
-   video.addEventListener(
-    'loadedmetadata',
-    onLoaded
-   );
-
-   video.addEventListener(
-    'error',
-    onError
-   );
-
-  }
- );
+return x;
 
 }
 
+return null;
+
+}
+
+function stripLm(landmarks){
+
+if(!landmarks)return null;
+
+return landmarks.map(p=>({
+
+x:Number((p.x||0).toFixed(5)),
+y:Number((p.y||0).toFixed(5)),
+z:Number((p.z||0).toFixed(5)),
+
+visibility:
+p.visibility!==undefined
+?Number(p.visibility.toFixed(3))
+:undefined
+
+}));
+
+}
+
+function waitForVideoMetadata(video){
+
+return new Promise((resolve,reject)=>{
+
+if(
+video.readyState>=1&&
+Number.isFinite(video.duration)
+){
+
+resolve();
+return;
+
+}
+
+const onLoaded=()=>{
+cleanup();
+resolve();
+};
+
+const onError=()=>{
+cleanup();
+reject(
+new Error(
+'動画の読み込みに失敗しました。'
+)
+);
+};
+
+const cleanup=()=>{
+
+video.removeEventListener(
+'loadedmetadata',
+onLoaded
+);
+
+video.removeEventListener(
+'error',
+onError
+);
+
+};
+
+video.addEventListener(
+'loadedmetadata',
+onLoaded
+);
+
+video.addEventListener(
+'error',
+onError
+);
+
+});
+
+}
 
 window.runPoseEstimationV2=
-async function(
- slotIndex
+async function(slotIndex){
+
+const state=window.appState;
+const slot=state.slots[slotIndex];
+
+if(!slot)return;
+
+runPoseBtn.disabled=true;
+exportPoseBtn.disabled=true;
+
+poseProgress.classList.add('visible');
+poseStage.classList.add('visible');
+
+poseProgressFill.style.width='0%';
+poseProgressText.textContent='モデルを読み込み中…';
+
+let landmarker;
+
+try{
+
+landmarker=
+await getHolisticLandmarker();
+
+}catch(err){
+
+console.error(err);
+
+poseProgressText.textContent=
+'モデルの読み込みに失敗しました。';
+
+runPoseBtn.disabled=false;
+
+return;
+
+}
+
+const video=document.createElement('video');
+
+const videoUrl=
+URL.createObjectURL(slot.file);
+
+video.src=videoUrl;
+video.muted=true;
+video.playsInline=true;
+video.preload='auto';
+
+try{
+
+await waitForVideoMetadata(video);
+
+const fps=parseFloat(fpsInput.value)||30;
+
+const startTime=
+Number.isFinite(slot.clapTime)
+?slot.clapTime
+:0;
+
+const duration=video.duration;
+
+if(!Number.isFinite(duration)||duration<=0){
+throw new Error(
+'動画の長さを取得できませんでした。'
+);
+}
+
+if(startTime>=duration){
+throw new Error(
+'手拍子位置が動画の終了位置を超えています。'
+);
+}
+
+const frameInterval=1/fps;
+
+const availableDuration=
+Math.max(0,duration-startTime);
+
+const totalFrames=
+Math.max(
+1,
+Math.floor(availableDuration*fps)
+);
+
+poseCanvas.width=video.videoWidth;
+poseCanvas.height=video.videoHeight;
+
+const ctx=poseCanvas.getContext('2d');
+
+const captured=[];
+
+for(
+let frameIdx=0;
+frameIdx<totalFrames;
+frameIdx++
 ){
 
- const state=
-  window.appState;
+const t=Math.min(
+duration-.001,
+startTime+frameIdx*frameInterval
+);
+
+poseProgressText.textContent=
+`動画位置 ${t.toFixed(2)}秒 / `+
+`${duration.toFixed(2)}秒 — シーク中…`;
+
+await seekTo(video,t,8000);
+
+const tsMs=Math.round(t*1000);
+
+const result=
+landmarker.detectForVideo(
+video,
+tsMs
+);
+
+const pose=
+unwrapLandmarks(
+result.poseLandmarks
+);
+
+const poseWorld=
+unwrapLandmarks(
+result.poseWorldLandmarks
+);
+
+const leftHand=
+unwrapLandmarks(
+result.leftHandLandmarks
+);
+
+const rightHand=
+unwrapLandmarks(
+result.rightHandLandmarks
+);
+
+ctx.clearRect(
+0,
+0,
+poseCanvas.width,
+poseCanvas.height
+);
+
+ctx.drawImage(
+video,
+0,
+0,
+poseCanvas.width,
+poseCanvas.height
+);
+
+if(
+pose&&
+window.POSE_CONNECTIONS&&
+typeof window.drawConnectors==='function'
+){
+
+window.drawConnectors(
+ctx,
+pose,
+window.POSE_CONNECTIONS,
+{
+color:'#e8604c',
+lineWidth:2
+}
+);
+
+if(typeof window.drawLandmarks==='function'){
+
+window.drawLandmarks(
+ctx,
+pose,
+{
+color:'#eef0f4',
+radius:2
+}
+);
 
+}
+
+}
+
+if(
+leftHand&&
+window.HAND_CONNECTIONS&&
+typeof window.drawConnectors==='function'
+){
+
+window.drawConnectors(
+ctx,
+leftHand,
+window.HAND_CONNECTIONS,
+{
+color:'#3d5a99',
+lineWidth:1.5
+}
+);
+
+}
 
- const slot=
-  state.slots[
-   slotIndex
-  ];
+if(
+rightHand&&
+window.HAND_CONNECTIONS&&
+typeof window.drawConnectors==='function'
+){
 
+window.drawConnectors(
+ctx,
+rightHand,
+window.HAND_CONNECTIONS,
+{
+color:'#3d5a99',
+lineWidth:1.5
+}
+);
 
- if(!slot){
+}
 
-  return;
+captured.push({
 
- }
+frame:frameIdx,
 
+t:Number(
+(frameIdx*frameInterval).toFixed(4)
+),
 
- runPoseBtn.disabled=true;
+sourceTime:Number(
+t.toFixed(4)
+),
 
- exportPoseBtn.disabled=true;
+pose:stripLm(pose),
 
+poseWorld:stripLm(poseWorld),
 
- poseProgress.classList.add(
-  'visible'
- );
+leftHand:stripLm(leftHand),
 
+rightHand:stripLm(rightHand)
 
- poseStage.classList.add(
-  'visible'
- );
+});
 
+const pct=Math.min(
+100,
+Math.round(
+((frameIdx+1)/totalFrames)*100
+)
+);
 
- poseProgressFill.style.width=
-  '0%';
+poseProgressFill.style.width=pct+'%';
 
+poseProgressText.textContent=
+`フレーム ${frameIdx+1}/${totalFrames} `+
+`(${pct}%) / `+
+`Pose:${pose?'OK':'--'} `+
+`World:${poseWorld?'OK':'--'}`;
 
- poseProgressText.textContent=
-  'モデルを読み込み中…';
+await new Promise(
+r=>setTimeout(r,0)
+);
 
+}
 
- let landmarker;
+state.poseData={
 
+version:'V3.3',
 
- try{
+slotIndex,
 
-  landmarker=
-   await getHolisticLandmarker();
+sourceFilename:slot.file.name,
 
- }catch(err){
+frameRate:fps,
 
-  console.error(err);
+startTimeSeconds:startTime,
 
+frames:captured
 
-  poseProgressText.textContent=
-   'モデルの読み込みに失敗しました。';
+};
 
+const poseCount=
+captured.filter(
+f=>
+Array.isArray(f.pose)&&
+f.pose.length>=33
+).length;
 
-  runPoseBtn.disabled=false;
+const worldCount=
+captured.filter(
+f=>
+Array.isArray(f.poseWorld)&&
+f.poseWorld.length>=33
+).length;
 
-  return;
+const poseRate=
+captured.length
+?poseCount/captured.length
+:0;
 
- }
+const worldRate=
+captured.length
+?worldCount/captured.length
+:0;
 
+poseProgressFill.style.width='100%';
 
- const video=
-  document.createElement(
-   'video'
-  );
+poseProgressText.textContent=
+`完了 — ${captured.length}フレーム `+
+`Pose ${poseCount}/${captured.length} `+
+`World ${worldCount}/${captured.length}`;
 
+if(poseRate<.8){
+poseProgressText.textContent+=
+' ⚠ Pose検出率が80%未満です。';
+}
 
- const videoUrl=
-  URL.createObjectURL(
-   slot.file
-  );
+if(worldRate<.8){
+poseProgressText.textContent+=
+' ⚠ World座標が不足しています。';
+}
 
+runPoseBtn.disabled=false;
+exportPoseBtn.disabled=captured.length===0;
 
- video.src=
-  videoUrl;
+window.dispatchEvent(
+new CustomEvent('pose-data-ready')
+);
 
+}catch(err){
 
- video.muted=true;
+console.error(
+'Pose estimation error:',
+err
+);
 
- video.playsInline=true;
+poseProgressText.textContent=
+'姿勢推定エラー: '+
+(err?.message||err);
 
- video.preload='auto';
+runPoseBtn.disabled=false;
+exportPoseBtn.disabled=true;
 
+}finally{
 
- try{
+URL.revokeObjectURL(videoUrl);
 
-  await waitForVideoMetadata(
-   video
-  );
-
-
-  const fps=
-   parseFloat(
-    fpsInput.value
-   )||30;
-
-
-  const startTime=
-   Number.isFinite(
-    slot.clapTime
-   )
-   ?slot.clapTime
-   :0;
-
-
-  const duration=
-   video.duration;
-
-
-  if(
-   !Number.isFinite(
-    duration
-   )||
-   duration<=0
-  ){
-
-   throw new Error(
-    '動画の長さを取得できませんでした。'
-   );
-
-  }
-
-
-  if(
-   startTime>=duration
-  ){
-
-   throw new Error(
-    '手拍子位置が動画の終了位置を超えています。'
-   );
-
-  }
-
-
-  const frameInterval=
-   1/fps;
-
-
-  const availableDuration=
-   Math.max(
-    0,
-    duration-
-    startTime
-   );
-
-
-  const totalFrames=
-   Math.max(
-    1,
-    Math.floor(
-     availableDuration*
-     fps
-    )
-   );
-
-
-  poseCanvas.width=
-   video.videoWidth;
-
-
-  poseCanvas.height=
-   video.videoHeight;
-
-
-  const ctx=
-   poseCanvas.getContext(
-    '2d'
-   );
-
-
-  const captured=[];
-
-
-  let consecutiveNoPose=0;
-
-
-  for(
-   let frameIdx=0;
-   frameIdx<totalFrames;
-   frameIdx++
-  ){
-
-   const t=
-    Math.min(
-     duration-
-     0.001,
-     startTime+
-     frameIdx*
-     frameInterval
-    );
-
-
-   if(
-    t<startTime||
-    t>=duration
-   ){
-
-    break;
-
-   }
-
-
-   poseProgressText.textContent=
-    `動画位置 ${t.toFixed(2)}秒 / `+
-    `${duration.toFixed(2)}秒 — `+
-    `シーク中…`;
-
-
-   await seekTo(
-    video,
-    t,
-    8000
-   );
-
-
-   /*
-    * MediaPipe VIDEOモードでは、
-    * 現在の動画フレームに対応した
-    * ミリ秒単位のtimestampを渡す。
-    */
-
-   const tsMs=
-    Math.round(
-     t*1000
-    );
-
-
-   const result=
-    landmarker.detectForVideo(
-     video,
-     tsMs
-    );
-
-
-   const pose=
-    unwrapLandmarks(
-     result.poseLandmarks
-    );
-
-
-   const poseWorld=
-    unwrapLandmarks(
-     result.poseWorldLandmarks
-    );
-
-
-   const leftHand=
-    unwrapLandmarks(
-     result.leftHandLandmarks
-    );
-
-
-   const rightHand=
-    unwrapLandmarks(
-     result.rightHandLandmarks
-    );
-
-
-   if(
-    pose&&
-    pose.length>=33
-   ){
-
-    consecutiveNoPose=0;
-
-   }else{
-
-    consecutiveNoPose++;
-
-   }
-
-
-   ctx.clearRect(
-    0,
-    0,
-    poseCanvas.width,
-    poseCanvas.height
-   );
-
-
-   ctx.drawImage(
-    video,
-    0,
-    0,
-    poseCanvas.width,
-    poseCanvas.height
-   );
-
-
-   if(
-    pose&&
-    window.POSE_CONNECTIONS&&
-    typeof window.drawConnectors==='function'
-   ){
-
-    window.drawConnectors(
-     ctx,
-     pose,
-     window.POSE_CONNECTIONS,
-     {
-      color:'#e8604c',
-      lineWidth:2
-     }
-    );
-
-
-    if(
-     typeof window.drawLandmarks==='function'
-    ){
-
-     window.drawLandmarks(
-      ctx,
-      pose,
-      {
-       color:'#eef0f4',
-       radius:2
-      }
-     );
-
-    }
-
-   }
-
-
-   if(
-    leftHand&&
-    window.HAND_CONNECTIONS&&
-    typeof window.drawConnectors==='function'
-   ){
-
-    window.drawConnectors(
-     ctx,
-     leftHand,
-     window.HAND_CONNECTIONS,
-     {
-      color:'#3d5a99',
-      lineWidth:1.5
-     }
-    );
-
-   }
-
-
-   if(
-    rightHand&&
-    window.HAND_CONNECTIONS&&
-    typeof window.drawConnectors==='function'
-   ){
-
-    window.drawConnectors(
-     ctx,
-     rightHand,
-     window.HAND_CONNECTIONS,
-     {
-      color:'#3d5a99',
-      lineWidth:1.5
-     }
-    );
-
-   }
-
-
-   captured.push({
-
-    frame:frameIdx,
-
-    t:Number(
-     (
-      frameIdx*
-      frameInterval
-     ).toFixed(4)
-    ),
-
-    sourceTime:Number(
-     t.toFixed(4)
-    ),
-
-    pose:
-     stripLm(
-      pose
-     ),
-
-    poseWorld:
-     stripLm(
-      poseWorld
-     ),
-
-    leftHand:
-     stripLm(
-      leftHand
-     ),
-
-    rightHand:
-     stripLm(
-      rightHand
-     )
-
-   });
-
-
-   const pct=
-    Math.min(
-     100,
-     Math.round(
-      (
-       (frameIdx+1)/
-       totalFrames
-      )*
-      100
-     )
-    );
-
-
-   poseProgressFill.style.width=
-    pct+'%';
-
-
-   const worldOK=
-    Array.isArray(
-     poseWorld
-    );
-
-
-   poseProgressText.textContent=
-    `フレーム ${frameIdx+1}/${totalFrames} `+
-    `(${pct}%) `+
-    ` / Pose:${pose?'OK':'--'} `+
-    `World:${worldOK?'OK':'--'}`;
-
-
-   await new Promise(
-    r=>
-     setTimeout(
-      r,
-      0
-     )
-   );
-
-  }
-
-
-  state.poseData={
-
-   slotIndex,
-
-   sourceFilename:
-    slot.file.name,
-
-   frameRate:fps,
-
-   startTimeSeconds:
-    startTime,
-
-   frames:captured
-
-  };
-
-
-  const poseCount=
-   captured.filter(
-    f=>
-     Array.isArray(
-      f.pose
-     )&&
-     f.pose.length>=33
-   ).length;
-
-
-  const worldCount=
-   captured.filter(
-    f=>
-     Array.isArray(
-      f.poseWorld
-     )&&
-     f.poseWorld.length>=33
-   ).length;
-
-
-  const poseRate=
-   captured.length
-   ?poseCount/
-    captured.length
-   :0;
-
-
-  const worldRate=
-   captured.length
-   ?worldCount/
-    captured.length
-   :0;
-
-
-  poseProgressFill.style.width=
-   '100%';
-
-
-  poseProgressText.textContent=
-   `完了 — ${captured.length}フレーム `+
-   `Pose ${poseCount}/${captured.length} `+
-   `World ${worldCount}/${captured.length}`;
-
-
-  if(
-   poseRate<.8
-  ){
-
-   poseProgressText.textContent+=
-    ' ⚠ Pose検出率が80%未満です。';
-
-  }
-
-
-  if(
-   worldRate<.8
-  ){
-
-   poseProgressText.textContent+=
-    ' ⚠ World座標が不足しています。';
-
-  }
-
-
-  runPoseBtn.disabled=false;
-
-
-  exportPoseBtn.disabled=
-   captured.length===0;
-
-
-  window.dispatchEvent(
-   new CustomEvent(
-    'pose-data-ready'
-   )
-  );
-
-
- }catch(err){
-
-  console.error(
-   'Pose estimation error:',
-   err
-  );
-
-
-  poseProgressText.textContent=
-   '姿勢推定エラー: '+
-   (
-    err?.message||
-    err
-   );
-
-
-  runPoseBtn.disabled=false;
-
-  exportPoseBtn.disabled=true;
-
-
- }finally{
-
-  URL.revokeObjectURL(
-   videoUrl
-  );
-
- }
+}
 
 };
 
 </script>
 
-
 <script type="module">
 
-
-import*as THREE
-from'three';
-
+import*as THREE from'three';
 
 import{
- GLTFLoader
+GLTFLoader
 }
 from'three/addons/loaders/GLTFLoader.js';
 
-
 import{
- GLTFExporter
+GLTFExporter
 }
 from'three/addons/exporters/GLTFExporter.js';
-
 
 import*as SkeletonUtils
 from'three/addons/utils/SkeletonUtils.js';
 
-
 import{
- VRMLoaderPlugin,
- VRMUtils
+VRMLoaderPlugin,
+VRMUtils
 }
 from'@pixiv/three-vrm';
 
-
 const vrmSectionLabel=
- document.getElementById(
-  'vrmSectionLabel'
- );
-
+document.getElementById('vrmSectionLabel');
 
 const vrmPanel=
- document.getElementById(
-  'vrmPanel'
- );
-
+document.getElementById('vrmPanel');
 
 const vrmFileInput=
- document.getElementById(
-  'vrmFileInput'
- );
-
+document.getElementById('vrmFileInput');
 
 const poseJsonFileInput=
- document.getElementById(
-  'poseJsonFileInput'
- );
-
+document.getElementById('poseJsonFileInput');
 
 const retargetBtn=
- document.getElementById(
-  'retargetBtn'
- );
-
+document.getElementById('retargetBtn');
 
 const vrmProgress=
- document.getElementById(
-  'vrmProgress'
- );
-
+document.getElementById('vrmProgress');
 
 const vrmProgressText=
- document.getElementById(
-  'vrmProgressText'
- );
-
+document.getElementById('vrmProgressText');
 
 const vrmProgressFill=
- document.getElementById(
-  'vrmProgressFill'
- );
-
+document.getElementById('vrmProgressFill');
 
 const vrmPlaybackControls=
- document.getElementById(
-  'vrmPlaybackControls'
- );
-
+document.getElementById('vrmPlaybackControls');
 
 const vrmPlayBtn=
- document.getElementById(
-  'vrmPlayBtn'
- );
-
+document.getElementById('vrmPlayBtn');
 
 const vrmPauseBtn=
- document.getElementById(
-  'vrmPauseBtn'
- );
-
+document.getElementById('vrmPauseBtn');
 
 const vrmExportBtn=
- document.getElementById(
-  'vrmExportBtn'
- );
-
+document.getElementById('vrmExportBtn');
 
 const vrmViewport=
- document.getElementById(
-  'vrmViewport'
- );
-
+document.getElementById('vrmViewport');
 
 const vrmHint=
- document.getElementById(
-  'vrmHint'
- );
-
+document.getElementById('vrmHint');
 
 const local={
 
- vrm:null,
-
- clip:null,
-
- mixer:null,
-
- action:null,
-
- renderer:null,
-
- scene:null,
-
- camera:null,
-
- hipsBasePosition:null,
-
- contextLost:false,
-
- currentVRMUrl:null
+vrm:null,
+clip:null,
+mixer:null,
+action:null,
+renderer:null,
+scene:null,
+camera:null,
+hipsBasePosition:null,
+contextLost:false,
+currentVRMUrl:null
 
 };
 
+window.addEventListener(
+'pose-data-ready',
+()=>{
+
+vrmSectionLabel.style.display='block';
+vrmPanel.style.display='block';
+
+refreshRetargetReady();
+
+});
 
 window.addEventListener(
- 'pose-data-ready',
- ()=>{
+'pose-data-invalidated',
+()=>{
 
-  vrmSectionLabel.style.display=
-   'block';
+retargetBtn.disabled=true;
 
+vrmProgressText.textContent=
+'新しい動画または同期位置が設定されました。姿勢推定を再実行してください。';
 
-  vrmPanel.style.display=
-   'block';
-
-
-  refreshRetargetReady();
-
- }
-);
-
+});
 
 function refreshRetargetReady(){
 
- const poseData=
-  window.appState.poseData;
+const poseData=window.appState.poseData;
 
+const hasFrames=!!(
+poseData&&
+Array.isArray(poseData.frames)&&
+poseData.frames.length>0
+);
 
- const hasFrames=
-  !!(
-   poseData&&
-   Array.isArray(
-    poseData.frames
-   )&&
-   poseData.frames.length>0
-  );
+const worldCount=hasFrames
+?poseData.frames.filter(
+f=>
+Array.isArray(f.poseWorld)&&
+f.poseWorld.length>=33
+).length
+:0;
 
+const required=hasFrames
+?Math.max(
+1,
+Math.ceil(poseData.frames.length*.8)
+)
+:Infinity;
 
- const worldCount=
-  hasFrames
-  ?poseData.frames.filter(
-   f=>
-    Array.isArray(
-     f.poseWorld
-    )&&
-    f.poseWorld.length>=33
-  ).length
-  :0;
+const hasWorld=
+hasFrames&&
+worldCount>=required;
 
-
- const required=
-  hasFrames
-  ?Math.max(
-   1,
-   Math.ceil(
-    poseData.frames.length*
-    .8
-   )
-  )
-  :Infinity;
-
-
- const hasWorld=
-  hasFrames&&
-  worldCount>=required;
-
-
- retargetBtn.disabled=
-  !(
-   local.vrm&&
-   hasFrames&&
-   hasWorld
-  );
+retargetBtn.disabled=
+!(
+local.vrm&&
+hasFrames&&
+hasWorld
+);
 
 }
-
 
 function ensureViewport(){
 
- if(local.renderer){
+if(local.renderer)return;
 
-  return;
+vrmViewport.classList.add('visible');
 
- }
+const width=Math.max(
+1,
+vrmViewport.clientWidth
+);
 
+const height=Math.max(
+1,
+vrmViewport.clientHeight
+);
 
- vrmViewport.classList.add(
-  'visible'
- );
+local.scene=new THREE.Scene();
 
+local.camera=
+new THREE.PerspectiveCamera(
+30,
+width/height,
+.1,
+20
+);
 
- const width=
-  Math.max(
-   1,
-   vrmViewport.clientWidth
-  );
+local.camera.position.set(
+0,
+1.3,
+3.2
+);
 
+local.renderer=
+new THREE.WebGLRenderer({
+antialias:true,
+alpha:true
+});
 
- const height=
-  Math.max(
-   1,
-   vrmViewport.clientHeight
-  );
+local.renderer.setSize(
+width,
+height
+);
 
+local.renderer.setPixelRatio(
+Math.min(
+window.devicePixelRatio||1,
+2
+)
+);
 
- local.scene=
-  new THREE.Scene();
+vrmViewport.appendChild(
+local.renderer.domElement
+);
 
+local.renderer.domElement.addEventListener(
+'webglcontextlost',
+e=>{
 
- local.camera=
-  new THREE.PerspectiveCamera(
-   30,
-   width/height,
-   .1,
-   20
-  );
+e.preventDefault();
 
+local.contextLost=true;
 
- local.camera.position.set(
-  0,
-  1.3,
-  3.2
- );
+vrmHint.textContent=
+'WebGLコンテキストが失われました。';
 
+});
 
- local.renderer=
-  new THREE.WebGLRenderer({
+local.renderer.domElement.addEventListener(
+'webglcontextrestored',
+()=>{
 
-   antialias:true,
+local.contextLost=false;
 
-   alpha:true
+const w=vrmViewport.clientWidth;
+const h=vrmViewport.clientHeight;
 
-  });
+if(w&&h){
 
+local.camera.aspect=w/h;
+local.camera.updateProjectionMatrix();
 
- local.renderer.setSize(
-  width,
-  height
- );
-
-
- local.renderer.setPixelRatio(
-  Math.min(
-   window.devicePixelRatio||1,
-   2
-  )
- );
-
-
- vrmViewport.appendChild(
-  local.renderer.domElement
- );
-
-
- local.renderer.domElement.addEventListener(
-  'webglcontextlost',
-  e=>{
-
-   e.preventDefault();
-
-   local.contextLost=true;
-
-   console.warn(
-    'WebGL context lost'
-   );
-
-   vrmHint.textContent=
-    'WebGLコンテキストが失われました。';
-
-  }
- );
-
-
- local.renderer.domElement.addEventListener(
-  'webglcontextrestored',
-  ()=>{
-
-   local.contextLost=false;
-
-   const w=
-    vrmViewport.clientWidth;
-
-   const h=
-    vrmViewport.clientHeight;
-
-
-   if(w&&h){
-
-    local.camera.aspect=
-     w/h;
-
-    local.camera.updateProjectionMatrix();
-
-
-    local.renderer.setSize(
-     w,
-     h
-    );
-
-   }
-
-
-   vrmHint.textContent=
-    local.vrm
-    ?'表示を復旧しました'
-    :'';
-
-  }
- );
-
-
- const light=
-  new THREE.DirectionalLight(
-   0xffffff,
-   1.4
-  );
-
-
- light.position.set(
-  1,
-  1,
-  1
- );
-
-
- local.scene.add(
-  light
- );
-
-
- local.scene.add(
-  new THREE.AmbientLight(
-   0xffffff,
-   .6
-  )
- );
-
-
- const clock=
-  new THREE.Clock();
-
-
- function tick(){
-
-  requestAnimationFrame(
-   tick
-  );
-
-
-  if(
-   local.contextLost
-  ){
-
-   return;
-
-  }
-
-
-  const delta=
-   clock.getDelta();
-
-
-  if(local.mixer){
-
-   local.mixer.update(
-    delta
-   );
-
-
-   local.vrm
-    ?.springBoneManager
-    ?.update(
-     delta
-    );
-
-
-   local.vrm
-    ?.lookAt
-    ?.update(
-     delta
-    );
-
-
-   local.vrm
-    ?.expressionManager
-    ?.update(
-     delta
-    );
-
-  }else if(
-   local.vrm
-  ){
-
-   local.vrm.update(
-    delta
-   );
-
-  }
-
-
-  local.renderer.render(
-   local.scene,
-   local.camera
-  );
-
- }
-
-
- tick();
-
-
- const resizeObserver=
-  new ResizeObserver(
-   entries=>{
-
-    for(
-     const entry of entries
-    ){
-
-     const w=
-      Math.round(
-       entry.contentRect.width
-      );
-
-
-     const h=
-      Math.round(
-       entry.contentRect.height
-      );
-
-
-     if(!w||!h){
-      continue;
-     }
-
-
-     local.camera.aspect=
-      w/h;
-
-
-     local.camera.updateProjectionMatrix();
-
-
-     local.renderer.setSize(
-      w,
-      h
-     );
-
-    }
-
-   }
-  );
-
-
- resizeObserver.observe(
-  vrmViewport
- );
+local.renderer.setSize(w,h);
 
 }
 
+vrmHint.textContent=
+local.vrm
+?'表示を復旧しました'
+:'';
+
+});
+
+const light=
+new THREE.DirectionalLight(
+0xffffff,
+1.4
+);
+
+light.position.set(1,1,1);
+
+local.scene.add(light);
+
+local.scene.add(
+new THREE.AmbientLight(
+0xffffff,
+.6
+)
+);
+
+const clock=new THREE.Clock();
+
+function tick(){
+
+requestAnimationFrame(tick);
+
+if(local.contextLost)return;
+
+const delta=clock.getDelta();
+
+if(local.mixer){
+
+local.mixer.update(delta);
+
+local.vrm?.springBoneManager?.update(delta);
+local.vrm?.lookAt?.update(delta);
+local.vrm?.expressionManager?.update(delta);
+
+}else if(local.vrm){
+
+local.vrm.update(delta);
+
+}
+
+local.renderer.render(
+local.scene,
+local.camera
+);
+
+}
+
+tick();
+
+const resizeObserver=
+new ResizeObserver(entries=>{
+
+for(const entry of entries){
+
+const w=Math.round(
+entry.contentRect.width
+);
+
+const h=Math.round(
+entry.contentRect.height
+);
+
+if(!w||!h)continue;
+
+local.camera.aspect=w/h;
+local.camera.updateProjectionMatrix();
+
+local.renderer.setSize(w,h);
+
+}
+
+});
+
+resizeObserver.observe(vrmViewport);
+
+}
 
 function stopCurrentAnimation(){
 
- if(local.action){
-
-  try{
-   local.action.stop();
-  }catch{}
-
- }
-
-
- if(local.mixer){
-
-  try{
-   local.mixer.stopAllAction();
-
-  }catch{}
-
- }
-
-
- local.action=null;
-
- local.mixer=null;
-
- local.clip=null;
-
- vrmPlaybackControls.style.display=
-  'none';
-
- vrmExportBtn.disabled=true;
-
+if(local.action){
+try{
+local.action.stop();
+}catch{}
 }
 
+if(local.mixer){
+try{
+local.mixer.stopAllAction();
+}catch{}
+}
+
+local.action=null;
+local.mixer=null;
+local.clip=null;
+
+vrmPlaybackControls.style.display='none';
+vrmExportBtn.disabled=true;
+
+}
 
 vrmFileInput.addEventListener(
- 'change',
- async e=>{
+'change',
+async e=>{
 
-  const file=
-   e.target.files?.[0];
+const file=e.target.files?.[0];
 
+if(!file)return;
 
-  if(!file)return;
+ensureViewport();
+stopCurrentAnimation();
 
+vrmHint.textContent=
+`読み込み中: ${file.name}`;
 
-  ensureViewport();
+const loader=new GLTFLoader();
 
+loader.register(
+parser=>
+new VRMLoaderPlugin(parser)
+);
 
-  stopCurrentAnimation();
+const url=URL.createObjectURL(file);
 
+try{
 
-  vrmHint.textContent=
-   `読み込み中: ${file.name}`;
+const gltf=
+await loader.loadAsync(url);
 
+const vrm=gltf.userData.vrm;
 
-  const loader=
-   new GLTFLoader();
+if(!vrm){
+throw new Error(
+'VRMとして認識できませんでした。'
+);
+}
 
+if(local.vrm){
+local.scene.remove(local.vrm.scene);
+}
 
-  loader.register(
-   parser=>
-    new VRMLoaderPlugin(
-     parser
-    )
-  );
+VRMUtils.removeUnnecessaryVertices(
+gltf.scene
+);
 
+VRMUtils.removeUnnecessaryJoints(
+gltf.scene
+);
 
-  const url=
-   URL.createObjectURL(
-    file
-   );
+if(
+vrm.meta&&
+(
+vrm.meta.metaVersion==='0'||
+vrm.meta.specVersion===undefined
+)
+){
 
+VRMUtils.rotateVRM0(vrm);
 
-  try{
+}
 
-   const gltf=
-    await loader.loadAsync(
-     url
-    );
+local.vrm=vrm;
 
+local.scene.add(vrm.scene);
 
-   const vrm=
-    gltf.userData.vrm;
+const hips=
+vrm.humanoid
+?.getNormalizedBoneNode('hips');
 
+local.hipsBasePosition=
+hips
+?hips.position.clone()
+:new THREE.Vector3(0,0,0);
 
-   if(!vrm){
+local.currentVRMUrl=null;
 
-    throw new Error(
-     'VRMとして認識できませんでした。'
-    );
+vrmHint.textContent=
+`読み込み完了: ${file.name}`;
 
-   }
+refreshRetargetReady();
 
+}catch(err){
 
-   if(local.vrm){
+console.error(
+'VRM load error:',
+err
+);
 
-    local.scene.remove(
-     local.vrm.scene
-    );
+vrmHint.textContent=
+'VRM/glbの読み込みに失敗しました: '+
+(err?.message||err);
 
-   }
+}finally{
 
+URL.revokeObjectURL(url);
 
-   VRMUtils.removeUnnecessaryVertices(
-    gltf.scene
-   );
+}
 
-
-   VRMUtils.removeUnnecessaryJoints(
-    gltf.scene
-   );
-
-
-   if(
-    vrm.meta&&
-    (
-     vrm.meta.metaVersion==='0'||
-     vrm.meta.specVersion===undefined
-    )
-   ){
-
-    VRMUtils.rotateVRM0(
-     vrm
-    );
-
-   }
-
-
-   local.vrm=
-    vrm;
-
-
-   local.scene.add(
-    vrm.scene
-   );
-
-
-   const hips=
-    vrm.humanoid
-     ?.getNormalizedBoneNode(
-      'hips'
-     );
-
-
-   if(hips){
-
-    local.hipsBasePosition=
-     hips.position.clone();
-
-   }else{
-
-    local.hipsBasePosition=
-     new THREE.Vector3(
-      0,
-      0,
-      0
-     );
-
-   }
-
-
-   local.currentVRMUrl=
-    null;
-
-
-   vrmHint.textContent=
-    `読み込み完了: ${file.name}`;
-
-
-   refreshRetargetReady();
-
-
-  }catch(err){
-
-   console.error(
-    'VRM load error:',
-    err
-   );
-
-
-   vrmHint.textContent=
-    'VRM/glbの読み込みに失敗しました: '+
-    (
-     err?.message||
-     err
-    );
-
-  }finally{
-
-   URL.revokeObjectURL(
-    url
-   );
-
-  }
-
- });
-
+});
 
 poseJsonFileInput.addEventListener(
- 'change',
- async e=>{
+'change',
+async e=>{
 
-  const file=
-   e.target.files?.[0];
+const file=e.target.files?.[0];
 
+if(!file)return;
 
-  if(!file)return;
+try{
 
+const text=await file.text();
+const data=JSON.parse(text);
 
-  try{
+const frameCount=
+Array.isArray(data.frames)
+?data.frames.length
+:0;
 
-   const text=
-    await file.text();
+if(frameCount===0){
+throw new Error(
+'このJSONには骨格データがありません。'
+);
+}
 
+const worldCount=
+data.frames.filter(
+f=>
+Array.isArray(f.poseWorld)&&
+f.poseWorld.length>=33
+).length;
 
-   const data=
-    JSON.parse(
-     text
-    );
+const requiredWorld=
+Math.max(
+1,
+Math.ceil(frameCount*.8)
+);
 
+if(worldCount<requiredWorld){
 
-   const frameCount=
-    Array.isArray(
-     data.frames
-    )
-    ?data.frames.length
-    :0;
-
-
-   if(
-    frameCount===0
-   ){
-
-    throw new Error(
-     'このJSONには骨格データがありません。'
-    );
-
-   }
-
-
-   const worldCount=
-    data.frames.filter(
-     f=>
-      Array.isArray(
-       f.poseWorld
-      )&&
-      f.poseWorld.length>=33
-    ).length;
-
-
-   const requiredWorld=
-    Math.max(
-     1,
-     Math.ceil(
-      frameCount*.8
-     )
-    );
-
-
-   if(
-    worldCount<
-    requiredWorld
-   ){
-
-    throw new Error(
-     `実寸3D座標が不足しています `+
-     `(${worldCount}/${frameCount})。`
-    );
-
-   }
-
-
-   window.appState.poseData=
-    data;
-
-
-   vrmProgressText.textContent=
-    `骨格データを読み込みました `+
-    `(${frameCount}フレーム)`;
-
-
-   vrmProgressFill.style.width=
-    '100%';
-
-
-   vrmProgress.classList.add(
-    'visible'
-   );
-
-
-   vrmSectionLabel.style.display=
-    'block';
-
-
-   vrmPanel.style.display=
-    'block';
-
-
-   refreshRetargetReady();
-
-
-  }catch(err){
-
-   console.error(
-    'JSON load error:',
-    err
-   );
-
-
-   window.appState.poseData=
-    null;
-
-
-   vrmProgress.classList.add(
-    'visible'
-   );
-
-
-   vrmProgressText.textContent=
-    'JSON読み込みエラー: '+
-    (
-     err?.message||
-     err
-    );
-
-
-   refreshRetargetReady();
-
-  }
-
- });
-
-
-function toVRMBoneName(
- name
-){
-
- return name.charAt(0).toLowerCase()+
-  name.slice(1);
+throw new Error(
+`実寸3D座標が不足しています `+
+`(${worldCount}/${frameCount})。`
+);
 
 }
 
+window.appState.poseData=data;
+
+vrmProgressText.textContent=
+`骨格データを読み込みました (${frameCount}フレーム)`;
+
+vrmProgressFill.style.width='100%';
+
+vrmProgress.classList.add('visible');
+
+vrmSectionLabel.style.display='block';
+vrmPanel.style.display='block';
+
+refreshRetargetReady();
+
+}catch(err){
+
+console.error(
+'JSON load error:',
+err
+);
+
+window.appState.poseData=null;
+
+vrmProgress.classList.add('visible');
+
+vrmProgressText.textContent=
+'JSON読み込みエラー: '+
+(err?.message||err);
+
+refreshRetargetReady();
+
+}
+
+});
+
+function toVRMBoneName(name){
+
+return name.charAt(0).toLowerCase()+
+name.slice(1);
+
+}
 
 function rigRotation(
- vrm,
- kalidokitName,
- rotation,
- dampener=1
+vrm,
+kalidokitName,
+rotation,
+dampener=1
 ){
 
- const bone=
-  vrm.humanoid
-   ?.getNormalizedBoneNode(
-    toVRMBoneName(
-     kalidokitName
-    )
-   );
+const bone=
+vrm.humanoid
+?.getNormalizedBoneNode(
+toVRMBoneName(kalidokitName)
+);
 
+if(!bone||!rotation)return;
 
- if(
-  !bone||
-  !rotation
- ){
+const euler=new THREE.Euler(
+(rotation.x||0)*dampener,
+(rotation.y||0)*dampener,
+(rotation.z||0)*dampener,
+'XYZ'
+);
 
-  return;
-
- }
-
-
- const euler=
-  new THREE.Euler(
-
-   (rotation.x||0)*
-   dampener,
-
-   (rotation.y||0)*
-   dampener,
-
-   (rotation.z||0)*
-   dampener,
-
-   'XYZ'
-
-  );
-
-
- const quat=
-  new THREE.Quaternion()
-   .setFromEuler(
-    euler
-   );
-
-
- bone.quaternion.copy(
-  quat
- );
+bone.quaternion.copy(
+new THREE.Quaternion()
+.setFromEuler(euler)
+);
 
 }
 
+function rigHips(vrm,hipsRig){
 
-function rigHips(
- vrm,
- hipsRig
-){
+const bone=
+vrm.humanoid
+?.getNormalizedBoneNode('hips');
 
- const bone=
-  vrm.humanoid
-   ?.getNormalizedBoneNode(
-    'hips'
-   );
+if(!bone||!hipsRig)return;
 
+const euler=new THREE.Euler(
+hipsRig.rotation?.x||0,
+hipsRig.rotation?.y||0,
+hipsRig.rotation?.z||0,
+'XYZ'
+);
 
- if(
-  !bone||
-  !hipsRig
- ){
+bone.quaternion.copy(
+new THREE.Quaternion()
+.setFromEuler(euler)
+);
 
-  return;
+if(local.hipsBasePosition){
 
- }
+bone.position.copy(
+local.hipsBasePosition
+);
 
+}else{
 
- const euler=
-  new THREE.Euler(
-
-   hipsRig.rotation?.x||0,
-
-   hipsRig.rotation?.y||0,
-
-   hipsRig.rotation?.z||0,
-
-   'XYZ'
-
-  );
-
-
- bone.quaternion.copy(
-  new THREE.Quaternion()
-   .setFromEuler(
-    euler
-   )
- );
-
-
- /*
-  * V3.2
-  *
-  * Hipsの位置は固定。
-  *
-  * MediaPipe World座標の
-  * 原点は股関節中央なので、
-  * ここから絶対Y座標をVRMへ
-  * 入れることはしない。
-  */
-
- if(
-  local.hipsBasePosition
- ){
-
-  bone.position.copy(
-   local.hipsBasePosition
-  );
-
- }else{
-
-  bone.position.set(
-   0,
-   0,
-   0
-  );
-
- }
+bone.position.set(0,0,0);
 
 }
 
+}
 
 function rigHandWrist(
- vrm,
- side,
- poseRig,
- handLandmarks
+vrm,
+side,
+poseRig,
+handLandmarks
 ){
 
- const wristKey=
-  side+
-  'Hand';
+const wristKey=side+'Hand';
 
+const bone=
+vrm.humanoid
+?.getNormalizedBoneNode(
+toVRMBoneName(wristKey)
+);
 
- const bone=
-  vrm.humanoid
-   ?.getNormalizedBoneNode(
-    toVRMBoneName(
-     wristKey
-    )
-   );
+if(
+!bone||
+!poseRig||
+!poseRig[wristKey]
+)return;
 
+const handRig=
+handLandmarks
+?Kalidokit.Hand.solve(
+handLandmarks,
+side
+)
+:null;
 
- if(
-  !bone||
-  !poseRig||
-  !poseRig[wristKey]
- ){
+const wrist=handRig
+?handRig[side+'Wrist']
+:null;
 
-  return;
+if(!wrist)return;
 
- }
+const euler=new THREE.Euler(
+wrist.x||0,
+wrist.y||0,
+wrist.z||0,
+'XYZ'
+);
 
-
- const handRig=
-  handLandmarks
-  ?Kalidokit.Hand.solve(
-   handLandmarks,
-   side
-  )
-  :null;
-
-
- const wrist=
-  handRig
-  ?handRig[
-   side+
-   'Wrist'
-  ]
-  :null;
-
-
- if(!wrist){
-
-  return;
-
- }
-
-
- const euler=
-  new THREE.Euler(
-
-   wrist.x||0,
-
-   wrist.y||0,
-
-   wrist.z||0,
-
-   'XYZ'
-
-  );
-
-
- bone.quaternion.copy(
-  new THREE.Quaternion()
-   .setFromEuler(
-    euler
-   )
- );
+bone.quaternion.copy(
+new THREE.Quaternion()
+.setFromEuler(euler)
+);
 
 }
-
 
 const FINGER_BONES=[
 
- 'ThumbProximal',
- 'ThumbIntermediate',
- 'ThumbDistal',
+'ThumbProximal',
+'ThumbIntermediate',
+'ThumbDistal',
 
- 'IndexProximal',
- 'IndexIntermediate',
- 'IndexDistal',
+'IndexProximal',
+'IndexIntermediate',
+'IndexDistal',
 
- 'MiddleProximal',
- 'MiddleIntermediate',
- 'MiddleDistal',
+'MiddleProximal',
+'MiddleIntermediate',
+'MiddleDistal',
 
- 'RingProximal',
- 'RingIntermediate',
- 'RingDistal',
+'RingProximal',
+'RingIntermediate',
+'RingDistal',
 
- 'LittleProximal',
- 'LittleIntermediate',
- 'LittleDistal'
+'LittleProximal',
+'LittleIntermediate',
+'LittleDistal'
 
 ];
 
-
 function rigHandFingers(
- vrm,
- handLandmarks,
- side
+vrm,
+handLandmarks,
+side
 ){
 
- if(!handLandmarks){
-  return;
- }
+if(!handLandmarks)return;
 
+const rig=
+Kalidokit.Hand.solve(
+handLandmarks,
+side
+);
 
- const rig=
-  Kalidokit.Hand.solve(
-   handLandmarks,
-   side
-  );
+if(!rig)return;
 
+FINGER_BONES.forEach(
+boneName=>{
 
- if(!rig){
-  return;
- }
+const rotation=
+rig[side+boneName];
 
+if(!rotation)return;
 
- FINGER_BONES.forEach(
-  boneName=>{
+rigRotation(
+vrm,
+side+boneName,
+rotation,
+1
+);
 
-   const rotation=
-    rig[
-     side+
-     boneName
-    ];
-
-
-   if(!rotation){
-    return;
-   }
-
-
-   rigRotation(
-    vrm,
-    side+
-    boneName,
-    rotation,
-    1
-   );
-
-  }
- );
+});
 
 }
-
 
 const LM={
 
- leftHip:23,
- rightHip:24,
-
- leftKnee:25,
- rightKnee:26,
-
- leftAnkle:27,
- rightAnkle:28,
-
- leftFootIndex:31,
- rightFootIndex:32
+leftHip:23,
+rightHip:24,
+leftKnee:25,
+rightKnee:26,
+leftAnkle:27,
+rightAnkle:28,
+leftFootIndex:31,
+rightFootIndex:32
 
 };
 
-
-const VISIBILITY_THRESHOLD=
- .5;
-
+const VISIBILITY_THRESHOLD=.5;
 
 function avgVisibility(
- landmarks,
- indices
+landmarks,
+indices
 ){
 
- if(!landmarks){
-  return 0;
- }
+if(!landmarks)return 0;
 
+const vals=indices.map(
+i=>landmarks[i]?.visibility??0
+);
 
- const vals=
-  indices.map(
-   i=>
-    landmarks[i]
-    ?.visibility??0
-  );
+if(!vals.length)return 0;
 
-
- if(!vals.length){
-  return 0;
- }
-
-
- return vals.reduce(
-  (a,b)=>
-   a+b,
-  0
- )/
- vals.length;
+return vals.reduce(
+(a,b)=>a+b,
+0
+)/vals.length;
 
 }
-
 
 function applyFrameToVRM(
- vrm,
- frame
+vrm,
+frame
 ){
 
- if(
-  !frame||
-  !Array.isArray(
-   frame.pose
-  )||
-  frame.pose.length<33
- ){
-
-  return false;
-
- }
-
-
- const poseLm=
-  frame.pose;
-
-
- const world3d=
-  Array.isArray(
-   frame.poseWorld
-  )&&
-  frame.poseWorld.length>=33
-  ?frame.poseWorld
-  :poseLm;
-
-
- let poseRig;
-
-
- try{
-
-  poseRig=
-   Kalidokit.Pose.solve(
-    world3d,
-    poseLm,
-    {
-     runtime:'mediapipe',
-     enableLegs:true
-    }
-   );
-
- }catch(err){
-
-  console.warn(
-   'Kalidokit Pose.solve failed:',
-   err
-  );
-
-  return false;
-
- }
-
-
- if(!poseRig){
-
-  return false;
-
- }
-
-
- if(
-  poseRig.Hips
- ){
-
-  rigHips(
-   vrm,
-   poseRig.Hips
-  );
-
- }
-
-
- rigRotation(
-  vrm,
-  'Chest',
-  poseRig.Spine,
-  .25
- );
-
-
- rigRotation(
-  vrm,
-  'Spine',
-  poseRig.Spine,
-  .45
- );
-
-
- rigRotation(
-  vrm,
-  'LeftUpperArm',
-  poseRig.LeftUpperArm
- );
-
-
- rigRotation(
-  vrm,
-  'LeftLowerArm',
-  poseRig.LeftLowerArm
- );
-
-
- rigRotation(
-  vrm,
-  'RightUpperArm',
-  poseRig.RightUpperArm
- );
-
-
- rigRotation(
-  vrm,
-  'RightLowerArm',
-  poseRig.RightLowerArm
- );
-
-
- const leftLegVis=
-  avgVisibility(
-   poseLm,
-   [
-    LM.leftHip,
-    LM.leftKnee,
-    LM.leftAnkle
-   ]
-  );
-
-
- const rightLegVis=
-  avgVisibility(
-   poseLm,
-   [
-    LM.rightHip,
-    LM.rightKnee,
-    LM.rightAnkle
-   ]
-  );
-
-
- if(
-  leftLegVis>
-  VISIBILITY_THRESHOLD
- ){
-
-  rigRotation(
-   vrm,
-   'LeftUpperLeg',
-   poseRig.LeftUpperLeg
-  );
-
-
-  rigRotation(
-   vrm,
-   'LeftLowerLeg',
-   poseRig.LeftLowerLeg
-  );
-
-
-  rigRotation(
-   vrm,
-   'LeftFoot',
-   poseRig.LeftFoot
-  );
-
- }
-
-
- if(
-  rightLegVis>
-  VISIBILITY_THRESHOLD
- ){
-
-  rigRotation(
-   vrm,
-   'RightUpperLeg',
-   poseRig.RightUpperLeg
-  );
-
-
-  rigRotation(
-   vrm,
-   'RightLowerLeg',
-   poseRig.RightLowerLeg
-  );
-
-
-  rigRotation(
-   vrm,
-   'RightFoot',
-   poseRig.RightFoot
-  );
-
- }
-
-
- rigHandWrist(
-  vrm,
-  'Left',
-  poseRig,
-  frame.leftHand
- );
-
-
- rigHandWrist(
-  vrm,
-  'Right',
-  poseRig,
-  frame.rightHand
- );
-
-
- rigHandFingers(
-  vrm,
-  frame.leftHand,
-  'Left'
- );
-
-
- rigHandFingers(
-  vrm,
-  frame.rightHand,
-  'Right'
- );
-
-
- return true;
+if(
+!frame||
+!Array.isArray(frame.pose)||
+frame.pose.length<33
+){
+
+return false;
 
 }
 
+const poseLm=frame.pose;
+
+const world3d=
+Array.isArray(frame.poseWorld)&&
+frame.poseWorld.length>=33
+?frame.poseWorld
+:poseLm;
+
+let poseRig;
+
+try{
+
+poseRig=
+Kalidokit.Pose.solve(
+world3d,
+poseLm,
+{
+runtime:'mediapipe',
+enableLegs:true
+}
+);
+
+}catch(err){
+
+console.warn(
+'Kalidokit Pose.solve failed:',
+err
+);
+
+return false;
+
+}
+
+if(!poseRig)return false;
+
+if(poseRig.Hips){
+
+rigHips(
+vrm,
+poseRig.Hips
+);
+
+}
+
+rigRotation(
+vrm,
+'Chest',
+poseRig.Spine,
+.25
+);
+
+rigRotation(
+vrm,
+'Spine',
+poseRig.Spine,
+.45
+);
+
+rigRotation(
+vrm,
+'LeftUpperArm',
+poseRig.LeftUpperArm
+);
+
+rigRotation(
+vrm,
+'LeftLowerArm',
+poseRig.LeftLowerArm
+);
+
+rigRotation(
+vrm,
+'RightUpperArm',
+poseRig.RightUpperArm
+);
+
+rigRotation(
+vrm,
+'RightLowerArm',
+poseRig.RightLowerArm
+);
+
+const leftLegVis=
+avgVisibility(
+poseLm,
+[
+LM.leftHip,
+LM.leftKnee,
+LM.leftAnkle
+]
+);
+
+const rightLegVis=
+avgVisibility(
+poseLm,
+[
+LM.rightHip,
+LM.rightKnee,
+LM.rightAnkle
+]
+);
+
+if(leftLegVis>VISIBILITY_THRESHOLD){
+
+rigRotation(
+vrm,
+'LeftUpperLeg',
+poseRig.LeftUpperLeg
+);
+
+rigRotation(
+vrm,
+'LeftLowerLeg',
+poseRig.LeftLowerLeg
+);
+
+rigRotation(
+vrm,
+'LeftFoot',
+poseRig.LeftFoot
+);
+
+}
+
+if(rightLegVis>VISIBILITY_THRESHOLD){
+
+rigRotation(
+vrm,
+'RightUpperLeg',
+poseRig.RightUpperLeg
+);
+
+rigRotation(
+vrm,
+'RightLowerLeg',
+poseRig.RightLowerLeg
+);
+
+rigRotation(
+vrm,
+'RightFoot',
+poseRig.RightFoot
+);
+
+}
+
+rigHandWrist(
+vrm,
+'Left',
+poseRig,
+frame.leftHand
+);
+
+rigHandWrist(
+vrm,
+'Right',
+poseRig,
+frame.rightHand
+);
+
+rigHandFingers(
+vrm,
+frame.leftHand,
+'Left'
+);
+
+rigHandFingers(
+vrm,
+frame.rightHand,
+'Right'
+);
+
+return true;
+
+}
 
 async function retarget(){
 
- const vrm=
-  local.vrm;
-
-
- const poseData=
-  window.appState.poseData;
-
-
- if(
-  !vrm||
-  !poseData||
-  !Array.isArray(
-   poseData.frames
-  )||
-  !poseData.frames.length
- ){
-
-  vrmProgressText.textContent=
-   '骨格データが読み込まれていません。';
-
-
-  vrmProgress.classList.add(
-   'visible'
-  );
-
-
-  return;
-
- }
-
-
- retargetBtn.disabled=true;
-
- vrmExportBtn.disabled=true;
-
-
- vrmProgress.classList.add(
-  'visible'
- );
-
-
- vrmProgressFill.style.width=
-  '0%';
-
-
- stopCurrentAnimation();
-
-
- const hips=
-  vrm.humanoid
-   ?.getNormalizedBoneNode(
-    'hips'
-   );
-
-
- if(hips){
-
-  local.hipsBasePosition=
-   hips.position.clone();
-
- }
-
-
- const trackedBoneNames=
-  new Set();
-
-
- const perFrameSamples=[];
-
-
- const frames=
-  poseData.frames;
-
-
- let successfulFrames=0;
-
-
- for(
-  let i=0;
-  i<frames.length;
-  i++
- ){
-
-  const success=
-   applyFrameToVRM(
-    vrm,
-    frames[i]
-   );
-
-
-  if(success){
-
-   successfulFrames++;
-
-  }
-
-
-  /*
-   * normalized bone
-   * →
-   * raw bone
-   */
-
-  vrm.humanoid.update();
-
-
-  const sample={
-
-   time:
-    Number(
-     frames[i].t
-    )||0,
-
-   bones:
-    new Map()
-
-  };
-
-
-  if(
-   vrm.humanoid.humanBones
-  ){
-
-   Object.keys(
-    vrm.humanoid.humanBones
-   ).forEach(
-    boneName=>{
-
-     const node=
-      vrm.humanoid
-       .getRawBoneNode(
-        boneName
-       );
-
-
-     if(!node){
-      return;
-     }
-
-
-     trackedBoneNames.add(
-      boneName
-     );
-
-
-     sample.bones.set(
-      boneName,
-      {
-
-       quat:
-        node.quaternion.clone()
-
-      }
-     );
-
-    }
-   );
-
-  }
-
-
-  perFrameSamples.push(
-   sample
-  );
-
-
-  if(
-   i%10===0||
-   i===frames.length-1
-  ){
-
-   const pct=
-    Math.round(
-     (
-      (i+1)/
-      frames.length
-     )*
-     100
-    );
-
-
-   vrmProgressText.textContent=
-    `リターゲティング中 `+
-    `${i+1}/${frames.length}`+
-    ` (${pct}%)`+
-    ` / 有効姿勢:${successfulFrames}`;
-
-
-   vrmProgressFill.style.width=
-    pct+'%';
-
-
-   await new Promise(
-    r=>
-     setTimeout(
-      r,
-      0
-     )
-   );
-
-  }
-
- }
-
-
- if(
-  successfulFrames===0
- ){
-
-  throw new Error(
-   '有効な姿勢を1フレームも作成できませんでした。'
-  );
-
- }
-
-
- const tracks=[];
-
-
- trackedBoneNames.forEach(
-  boneName=>{
-
-   const node=
-    vrm.humanoid
-     .getRawBoneNode(
-      boneName
-     );
-
-
-   if(!node){
-    return;
-   }
-
-
-   const times=[];
-
-   const quatValues=[];
-
-
-   perFrameSamples.forEach(
-    sample=>{
-
-     const b=
-      sample.bones.get(
-       boneName
-      );
-
-
-     if(!b){
-      return;
-     }
-
-
-     times.push(
-      sample.time
-     );
-
-
-     quatValues.push(
-
-      b.quat.x,
-      b.quat.y,
-      b.quat.z,
-      b.quat.w
-
-     );
-
-    }
-   );
-
-
-   if(
-    times.length>=2
-   ){
-
-    tracks.push(
-     new THREE.QuaternionKeyframeTrack(
-      `${node.name}.quaternion`,
-      times,
-      quatValues
-     )
-    );
-
-   }
-
-  }
- );
-
-
- const lastTime=
-  frames.length
-  ?Number(
-   frames[
-    frames.length-1
-   ].t
-  )||0
-  :0;
-
-
- const fps=
-  Number(
-   poseData.frameRate
-  )||30;
-
-
- const frameDuration=
-  1/fps;
-
-
- const duration=
-  Math.max(
-   frameDuration,
-   lastTime+
-   frameDuration
-  );
-
-
- if(!tracks.length){
-
-  throw new Error(
-   'AnimationTrackを作成できませんでした。'
-  );
-
- }
-
-
- const clip=
-  new THREE.AnimationClip(
-   'hanagasa-odori',
-   duration,
-   tracks
- );
-
-
- local.clip=
-  clip;
-
-
- local.mixer=
-  new THREE.AnimationMixer(
-   vrm.scene
-  );
-
-
- local.action=
-  local.mixer.clipAction(
-   clip
-  );
-
-
- local.action.reset();
-
-
- local.action.setLoop(
-  THREE.LoopRepeat,
-  Infinity
- );
-
-
- local.action.clampWhenFinished=
-  false;
-
-
- local.action.enabled=
-  true;
-
-
- local.action.paused=
-  false;
-
-
- local.action.play();
-
-
- /*
-  * Mixerの先頭状態を確実に適用。
-  */
-
- local.mixer.update(
-  0
- );
-
-
- vrmProgressText.textContent=
-  `完了 — `+
-  `${frames.length}フレームをベイク `+
-  `(有効姿勢 ${successfulFrames}) / `+
-  `${duration.toFixed(2)}秒 / `+
-  `Hips位置固定`;
-
-
- vrmProgressFill.style.width=
-  '100%';
-
-
- vrmPlaybackControls.style.display=
-  'flex';
-
-
- vrmExportBtn.disabled=false;
-
-
- retargetBtn.disabled=false;
-
-}
-
-
-retargetBtn.addEventListener(
- 'click',
- async()=>{
-
-  try{
-
-   await retarget();
-
-  }catch(err){
-
-   console.error(
-    'Retarget error:',
-    err
-   );
-
-
-   vrmProgressText.textContent=
-    'リターゲティングエラー: '+
-    (
-     err?.message||
-     err
-    );
-
-
-   retargetBtn.disabled=false;
-
-  }
-
- });
-
-
-vrmPlayBtn.addEventListener(
- 'click',
- ()=>{
-
-  if(
-   !local.action||
-   !local.mixer
-  ){
-
-   return;
-
-  }
-
-
-  local.action.enabled=true;
-
-  local.action.paused=false;
-
-
-  if(
-   !local.action.isRunning()
-  ){
-
-   local.action.reset();
-
-   local.action.play();
-
-  }
-
- });
-
-
-vrmPauseBtn.addEventListener(
- 'click',
- ()=>{
-
-  if(local.action){
-
-   local.action.paused=true;
-
-  }
-
- });
-
-
-function buildExportableScene(
- vrm
+const vrm=local.vrm;
+const poseData=window.appState.poseData;
+
+if(
+!vrm||
+!poseData||
+!Array.isArray(poseData.frames)||
+!poseData.frames.length
 ){
 
- const clone=
-  SkeletonUtils.clone(
-   vrm.scene
-  );
+vrmProgressText.textContent=
+'骨格データが読み込まれていません。';
 
+vrmProgress.classList.add('visible');
 
- clone.traverse(
-  obj=>{
-
-   if(
-    !obj.isMesh&&
-    !obj.isSkinnedMesh
-   ){
-
-    return;
-
-   }
-
-
-   const materials=
-    Array.isArray(
-     obj.material
-    )
-    ?obj.material
-    :[
-     obj.material
-    ];
-
-
-   const replaced=
-    materials.map(
-     mat=>{
-
-      if(
-       !mat||
-       !mat.isMToonMaterial
-      ){
-
-       return mat;
-
-      }
-
-
-      return new THREE.MeshStandardMaterial({
-
-       map:
-        mat.map||
-        null,
-
-       color:
-        mat.color
-        ?mat.color.clone()
-        :new THREE.Color(
-         1,
-         1,
-         1
-        ),
-
-       transparent:
-        !!mat.transparent,
-
-       alphaTest:
-        mat.alphaTest||
-        0,
-
-       side:
-        mat.side,
-
-       name:
-        mat.name
-
-      });
-
-     }
-    );
-
-
-   obj.material=
-    Array.isArray(
-     obj.material
-    )
-    ?replaced
-    :replaced[0];
-
-  }
- );
-
-
- return clone;
+return;
 
 }
 
+retargetBtn.disabled=true;
+vrmExportBtn.disabled=true;
+
+vrmProgress.classList.add('visible');
+vrmProgressFill.style.width='0%';
+
+stopCurrentAnimation();
+
+const hips=
+vrm.humanoid
+?.getNormalizedBoneNode('hips');
+
+if(hips){
+local.hipsBasePosition=
+hips.position.clone();
+}
+
+const trackedBoneNames=new Set();
+const perFrameSamples=[];
+const frames=poseData.frames;
+
+let successfulFrames=0;
+
+for(
+let i=0;
+i<frames.length;
+i++
+){
+
+const success=
+applyFrameToVRM(
+vrm,
+frames[i]
+);
+
+if(success){
+successfulFrames++;
+}
+
+vrm.humanoid.update();
+
+const sample={
+time:Number(frames[i].t)||0,
+bones:new Map()
+};
+
+if(vrm.humanoid.humanBones){
+
+Object.keys(
+vrm.humanoid.humanBones
+).forEach(
+boneName=>{
+
+const node=
+vrm.humanoid
+.getRawBoneNode(
+boneName
+);
+
+if(!node)return;
+
+trackedBoneNames.add(boneName);
+
+sample.bones.set(
+boneName,
+{
+quat:node.quaternion.clone()
+}
+);
+
+}
+);
+
+}
+
+perFrameSamples.push(sample);
+
+if(
+i%10===0||
+i===frames.length-1
+){
+
+const pct=Math.round(
+((i+1)/frames.length)*100
+);
+
+vrmProgressText.textContent=
+`リターゲティング中 `+
+`${i+1}/${frames.length} `+
+`(${pct}%) / 有効姿勢:${successfulFrames}`;
+
+vrmProgressFill.style.width=pct+'%';
+
+await new Promise(
+r=>setTimeout(r,0)
+);
+
+}
+
+}
+
+if(successfulFrames===0){
+
+throw new Error(
+'有効な姿勢を1フレームも作成できませんでした。'
+);
+
+}
+
+const tracks=[];
+
+trackedBoneNames.forEach(
+boneName=>{
+
+const node=
+vrm.humanoid
+.getRawBoneNode(boneName);
+
+if(!node)return;
+
+const times=[];
+const quatValues=[];
+
+perFrameSamples.forEach(
+sample=>{
+
+const b=
+sample.bones.get(boneName);
+
+if(!b)return;
+
+times.push(sample.time);
+
+quatValues.push(
+b.quat.x,
+b.quat.y,
+b.quat.z,
+b.quat.w
+);
+
+});
+
+if(times.length>=2){
+
+tracks.push(
+new THREE.QuaternionKeyframeTrack(
+`${node.name}.quaternion`,
+times,
+quatValues
+)
+);
+
+}
+
+});
+
+const lastTime=
+frames.length
+?Number(
+frames[frames.length-1].t
+)||0
+:0;
+
+const fps=
+Number(poseData.frameRate)||30;
+
+const frameDuration=1/fps;
+
+const duration=Math.max(
+frameDuration,
+lastTime+frameDuration
+);
+
+if(!tracks.length){
+
+throw new Error(
+'AnimationTrackを作成できませんでした。'
+);
+
+}
+
+const clip=
+new THREE.AnimationClip(
+'hanagasa-odori',
+duration,
+tracks
+);
+
+local.clip=clip;
+
+local.mixer=
+new THREE.AnimationMixer(
+vrm.scene
+);
+
+local.action=
+local.mixer.clipAction(clip);
+
+local.action.reset();
+
+local.action.setLoop(
+THREE.LoopRepeat,
+Infinity
+);
+
+local.action.clampWhenFinished=false;
+local.action.enabled=true;
+local.action.paused=false;
+
+local.action.play();
+
+local.mixer.update(0);
+
+vrmProgressText.textContent=
+`完了 — ${frames.length}フレームをベイク `+
+`(有効姿勢 ${successfulFrames}) / `+
+`${duration.toFixed(2)}秒 / Hips位置固定`;
+
+vrmProgressFill.style.width='100%';
+
+vrmPlaybackControls.style.display='flex';
+
+vrmExportBtn.disabled=false;
+retargetBtn.disabled=false;
+
+}
+
+retargetBtn.addEventListener(
+'click',
+async()=>{
+
+try{
+
+await retarget();
+
+}catch(err){
+
+console.error(
+'Retarget error:',
+err
+);
+
+vrmProgressText.textContent=
+'リターゲティングエラー: '+
+(err?.message||err);
+
+retargetBtn.disabled=false;
+
+}
+
+});
+
+vrmPlayBtn.addEventListener(
+'click',
+()=>{
+
+if(
+!local.action||
+!local.mixer
+)return;
+
+local.action.enabled=true;
+local.action.paused=false;
+
+if(!local.action.isRunning()){
+
+local.action.reset();
+local.action.play();
+
+}
+
+});
+
+vrmPauseBtn.addEventListener(
+'click',
+()=>{
+
+if(local.action){
+local.action.paused=true;
+}
+
+});
+
+function buildExportableScene(vrm){
+
+const clone=
+SkeletonUtils.clone(
+vrm.scene
+);
+
+clone.traverse(obj=>{
+
+if(
+!obj.isMesh&&
+!obj.isSkinnedMesh
+){
+return;
+}
+
+const materials=
+Array.isArray(obj.material)
+?obj.material
+:[obj.material];
+
+const replaced=
+materials.map(mat=>{
+
+if(
+!mat||
+!mat.isMToonMaterial
+){
+return mat;
+}
+
+return new THREE.MeshStandardMaterial({
+
+map:mat.map||null,
+
+color:
+mat.color
+?mat.color.clone()
+:new THREE.Color(1,1,1),
+
+transparent:!!mat.transparent,
+
+alphaTest:mat.alphaTest||0,
+
+side:mat.side,
+
+name:mat.name
+
+});
+
+});
+
+obj.material=
+Array.isArray(obj.material)
+?replaced
+:replaced[0];
+
+});
+
+return clone;
+
+}
 
 vrmExportBtn.addEventListener(
- 'click',
- ()=>{
+'click',
+()=>{
 
-  if(
-   !local.vrm||
-   !local.clip
-  ){
+if(
+!local.vrm||
+!local.clip
+){
+return;
+}
 
-   return;
+try{
 
-  }
+const exportScene=
+buildExportableScene(
+local.vrm
+);
 
+const exporter=
+new GLTFExporter();
 
-  try{
+vrmHint.textContent=
+'GLBを書き出し中…';
 
-   const exportScene=
-    buildExportableScene(
-     local.vrm
-    );
+exporter.parse(
 
+exportScene,
 
-   const exporter=
-    new GLTFExporter();
+result=>{
 
+const blob=
+new Blob(
+[result],
+{
+type:'application/octet-stream'
+}
+);
 
-   vrmHint.textContent=
-    'GLBを書き出し中…';
+const url=
+URL.createObjectURL(blob);
 
+const a=document.createElement('a');
 
-   exporter.parse(
+a.href=url;
 
-    exportScene,
+a.download=
+'hanagasa-odori-animated-V3.3.glb';
 
-    result=>{
+a.click();
 
-     const blob=
-      new Blob(
-       [result],
-       {
-        type:
-         'application/octet-stream'
-       }
-      );
+setTimeout(
+()=>URL.revokeObjectURL(url),
+1500
+);
 
+vrmHint.textContent=
+'GLB書き出し完了';
 
-     const url=
-      URL.createObjectURL(
-       blob
-      );
+},
 
+error=>{
 
-     const a=
-      document.createElement(
-       'a'
-      );
+console.error(
+'GLB export error:',
+error
+);
 
+vrmHint.textContent=
+'GLB書き出しに失敗しました: '+
+(error?.message||error);
 
-     a.href=url;
+},
 
+{
+binary:true,
+animations:[local.clip]
+}
 
-     a.download=
-      'hanagasa-odori-animated-V3.2.glb';
+);
 
+}catch(err){
 
-     a.click();
+console.error(
+'GLB export exception:',
+err
+);
 
+vrmHint.textContent=
+'GLB書き出しエラー: '+
+(err?.message||err);
 
-     setTimeout(
-      ()=>{
-       URL.revokeObjectURL(
-        url
-       );
-      },
-      1500
-     );
+}
 
-
-     vrmHint.textContent=
-      'GLB書き出し完了';
-
-    },
-
-
-    error=>{
-
-     console.error(
-      'GLB export error:',
-      error
-     );
-
-
-     vrmHint.textContent=
-      'GLB書き出しに失敗しました: '+
-      (
-       error?.message||
-       error
-      );
-
-    },
-
-
-    {
-     binary:true,
-
-     animations:[
-      local.clip
-     ]
-
-    }
-
-   );
-
-  }catch(err){
-
-   console.error(
-    'GLB export exception:',
-    err
-   );
-
-
-   vrmHint.textContent=
-    'GLB書き出しエラー: '+
-    (
-     err?.message||
-     err
-    );
-
-  }
-
- });
+});
 
 </script>
-
 
 </body>
 </html>
