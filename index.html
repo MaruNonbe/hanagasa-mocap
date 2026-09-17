@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 
-<title>動画同期ツール — モーションキャプチャ前処理 V3.3</title>
+<title>動画同期ツール — モーションキャプチャ前処理 V3.4</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -787,15 +787,10 @@ id="vrmViewport">
 自動検出できない場合でも、各スロットの ± ボタンで
 フレーム単位に手動指定できます。
 
-V3.3では、動画選択後に手拍子検出ボタンが
-正しく有効になるよう同期処理を修正しています。
-
-また、手動同期位置を保持しながら、
-MediaPipeの動画タイムスタンプ、骨格データ検証、
-VRMアニメーションベイク処理を行います。
-
-Hipsの絶対位置はVRMへ直接適用せず、
-初期姿勢を基準として固定します。
+V3.4では、腰の水平位置(X/Z)は初期姿勢を基準に固定しつつ、
+高さ(Y)だけは脚の実際の曲がり具合から逆算して動かすことで、
+しゃがみ動作が正しく反映されるようにしています(フットグラウンディング)。
+また、手首と指の回転にだけ軽い平滑化を戻し、揺れ・震えを抑えています。
 
 すべての処理はブラウザ内で完結し、
 動画ファイルは外部に送信されません。
@@ -1531,17 +1526,6 @@ syncPanel.classList.add('visible');
 
 function refreshControls(){
 
-/*
- * V3.3重要修正
- *
- * 以前は activeSlots() を使っていたため、
- * 「手拍子検出済み」でない動画しかない場合、
- * 手拍子検出ボタンそのものが押せなくなる
- * デッドロックが発生していた。
- *
- * ここでは「動画が選択されているか」だけを見る。
- */
-
 const hasVideo=
 state.slots.some(
 s=>s&&s.file
@@ -1589,11 +1573,6 @@ s.index,
 );
 
 try{
-
-/*
- * 手動指定済みの場合は
- * ユーザーの位置を保持する。
- */
 
 if(
 slot.manualSync&&
@@ -1748,7 +1727,7 @@ const ref=active[0];
 
 const data={
 
-version:'V3.3',
+version:'V3.4',
 
 frameRate:parseFloat(fpsInput.value)||30,
 
@@ -1793,7 +1772,7 @@ const url=URL.createObjectURL(blob);
 const a=document.createElement('a');
 
 a.href=url;
-a.download='sync-offsets-V3.3.json';
+a.download='sync-offsets-V3.4.json';
 
 a.click();
 
@@ -2579,7 +2558,7 @@ r=>setTimeout(r,0)
 
 state.poseData={
 
-version:'V3.3',
+version:'V3.4',
 
 slotIndex,
 
@@ -2744,6 +2723,46 @@ contextLost:false,
 currentVRMUrl:null
 
 };
+
+// V3.4: 脚を曲げた後の実際の足の高さから腰のYを逆算するための基準値。
+// retarget()の開始時に毎回リセットする(そのテイクの1フレーム目=直立
+// 基準として記録し直す)。
+let footGroundBaseline=null;
+
+// 脚の回転(rigRotationでのUpperLeg/LowerLeg/Foot適用)が終わった直後に呼ぶ。
+// 腰のX/ZはrigHips()で初期姿勢に固定したまま、Yだけをここで動かして
+// 「しゃがめば腰が下がり、かつ足が地面から浮かない」の両立を図る。
+function groundFeet(vrm){
+
+const hips=vrm.humanoid?.getNormalizedBoneNode('hips');
+const leftFoot=vrm.humanoid?.getNormalizedBoneNode('leftFoot');
+const rightFoot=vrm.humanoid?.getNormalizedBoneNode('rightFoot');
+
+if(!hips||!leftFoot||!rightFoot)return;
+
+vrm.scene.updateMatrixWorld(true);
+
+const lp=new THREE.Vector3();
+leftFoot.getWorldPosition(lp);
+
+const rp=new THREE.Vector3();
+rightFoot.getWorldPosition(rp);
+
+const lowestFootY=Math.min(lp.y,rp.y);
+
+if(footGroundBaseline===null){
+// このテイクの最初のフレームを「両足が地面に着いている基準姿勢」として記録する
+footGroundBaseline=lowestFootY;
+return;
+}
+
+const drift=lowestFootY-footGroundBaseline;
+
+hips.position.y-=drift;
+
+vrm.scene.updateMatrixWorld(true);
+
+}
 
 window.addEventListener(
 'pose-data-ready',
@@ -3185,11 +3204,15 @@ name.slice(1);
 
 }
 
+// V3.4: lerpFactorを追加(省略時は1=補間なし、V3.3までと同じ挙動)。
+// 手首・指のように単眼推定のノイズが乗りやすい部位だけ、
+// 呼び出し側で小さい値(0.5前後)を渡して平滑化する。
 function rigRotation(
 vrm,
 kalidokitName,
 rotation,
-dampener=1
+dampener=1,
+lerpFactor=1
 ){
 
 const bone=
@@ -3207,13 +3230,21 @@ const euler=new THREE.Euler(
 'XYZ'
 );
 
-bone.quaternion.copy(
+const quat=
 new THREE.Quaternion()
-.setFromEuler(euler)
-);
+.setFromEuler(euler);
+
+if(lerpFactor>=1){
+bone.quaternion.copy(quat);
+}else{
+bone.quaternion.slerp(quat,lerpFactor);
+}
 
 }
 
+// V3.4: 腰の水平位置(X/Z)は読み込み時の初期姿勢に固定したまま、
+// Y(高さ)はここでは触らずgroundFeet()に委ねる。
+// これにより「足が浮かない」ことと「しゃがめば腰が下がる」ことを両立する。
 function rigHips(vrm,hipsRig){
 
 const bone=
@@ -3236,9 +3267,9 @@ new THREE.Quaternion()
 
 if(local.hipsBasePosition){
 
-bone.position.copy(
-local.hipsBasePosition
-);
+bone.position.x=local.hipsBasePosition.x;
+bone.position.z=local.hipsBasePosition.z;
+// Yはここでは変更しない(groundFeet()が脚の実形状から動的に決める)
 
 }else{
 
@@ -3248,11 +3279,14 @@ bone.position.set(0,0,0);
 
 }
 
+// V3.4: lerpFactorを追加し、既定で軽く平滑化する(手首は特にジッターが
+// 大きいことが実データで確認できたため)。
 function rigHandWrist(
 vrm,
 side,
 poseRig,
-handLandmarks
+handLandmarks,
+lerpFactor=.5
 ){
 
 const wristKey=side+'Hand';
@@ -3290,10 +3324,11 @@ wrist.z||0,
 'XYZ'
 );
 
-bone.quaternion.copy(
+const quat=
 new THREE.Quaternion()
-.setFromEuler(euler)
-);
+.setFromEuler(euler);
+
+bone.quaternion.slerp(quat,lerpFactor);
 
 }
 
@@ -3321,6 +3356,7 @@ const FINGER_BONES=[
 
 ];
 
+// V3.4: 指にも軽い平滑化(0.5)を適用してジッターを抑える。
 function rigHandFingers(
 vrm,
 handLandmarks,
@@ -3349,7 +3385,8 @@ rigRotation(
 vrm,
 side+boneName,
 rotation,
-1
+1,
+.5
 );
 
 });
@@ -3552,6 +3589,11 @@ poseRig.RightFoot
 
 }
 
+// V3.4: 脚の回転がすべて確定した直後に、実際の足の高さを測って
+// 腰のYだけを補正する。しゃがみ動作が正しく腰の下降として反映され、
+// かつ足が地面から浮かないようにする。
+groundFeet(vrm);
+
 rigHandWrist(
 vrm,
 'Left',
@@ -3620,6 +3662,9 @@ local.hipsBasePosition=
 hips.position.clone();
 }
 
+// V3.4: このテイクの接地基準をリセット(1フレーム目で再計測させる)
+footGroundBaseline=null;
+
 const trackedBoneNames=new Set();
 const perFrameSamples=[];
 const frames=poseData.frames;
@@ -3669,7 +3714,11 @@ trackedBoneNames.add(boneName);
 sample.bones.set(
 boneName,
 {
-quat:node.quaternion.clone()
+quat:node.quaternion.clone(),
+pos:
+boneName==='hips'
+?node.position.clone()
+:null
 }
 );
 
@@ -3757,6 +3806,44 @@ quatValues
 
 }
 
+// V3.4: 腰(hips)だけは位置トラックも書き出す。
+// groundFeet()で動かしたYを含む、実際に使われた位置をそのまま記録する。
+if(boneName==='hips'){
+
+const posTimes=[];
+const posValues=[];
+
+perFrameSamples.forEach(
+sample=>{
+
+const b=sample.bones.get('hips');
+
+if(!b||!b.pos)return;
+
+posTimes.push(sample.time);
+
+posValues.push(
+b.pos.x,
+b.pos.y,
+b.pos.z
+);
+
+});
+
+if(posTimes.length>=2){
+
+tracks.push(
+new THREE.VectorKeyframeTrack(
+`${node.name}.position`,
+posTimes,
+posValues
+)
+);
+
+}
+
+}
+
 });
 
 const lastTime=
@@ -3819,7 +3906,7 @@ local.mixer.update(0);
 vrmProgressText.textContent=
 `完了 — ${frames.length}フレームをベイク `+
 `(有効姿勢 ${successfulFrames}) / `+
-`${duration.toFixed(2)}秒 / Hips位置固定`;
+`${duration.toFixed(2)}秒 / 腰は接地補正つき`;
 
 vrmProgressFill.style.width='100%';
 
@@ -3995,7 +4082,7 @@ const a=document.createElement('a');
 a.href=url;
 
 a.download=
-'hanagasa-odori-animated-V3.3.glb';
+'hanagasa-odori-animated-V3.4.glb';
 
 a.click();
 
@@ -4048,3 +4135,4 @@ vrmHint.textContent=
 
 </body>
 </html>
+k
