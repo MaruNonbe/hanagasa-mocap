@@ -3230,19 +3230,19 @@ currentVRMUrl:null
 
 };
 
-// V3.4: 脚を曲げた後の実際の足の高さから腰のYを逆算するための基準値。
-// retarget()の開始時に毎回リセットする(そのテイクの1フレーム目=直立
-// 基準として記録し直す)。
+// V3.7: 正規化リグ(retargeting用プロキシ)ではなく、実際に書き出される
+// RAW骨格を直接測って補正する。V3.4〜V3.6では正規化リグ上で補正していたため、
+// vrm.humanoid.update()でRAWへ変換するタイミングとのズレにより、
+// 脚の角度が急激に変わるしゃがみの切り替わり瞬間だけ足が浮く誤差が
+// 残っていた。RAW骨格を直接測って直接補正することでこれを解消する。
+// retarget()のループ内で、vrm.humanoid.update()の「直後」に呼ぶこと。
 let footGroundBaseline=null;
 
-// 脚の回転(rigRotationでのUpperLeg/LowerLeg/Foot適用)が終わった直後に呼ぶ。
-// 腰のX/ZはrigHips()で初期姿勢に固定したまま、Yだけをここで動かして
-// 「しゃがめば腰が下がり、かつ足が地面から浮かない」の両立を図る。
-function groundFeet(vrm){
+function groundFeetRaw(vrm){
 
-const hips=vrm.humanoid?.getNormalizedBoneNode('hips');
-const leftFoot=vrm.humanoid?.getNormalizedBoneNode('leftFoot');
-const rightFoot=vrm.humanoid?.getNormalizedBoneNode('rightFoot');
+const hips=vrm.humanoid?.getRawBoneNode('hips');
+const leftFoot=vrm.humanoid?.getRawBoneNode('leftFoot');
+const rightFoot=vrm.humanoid?.getRawBoneNode('rightFoot');
 
 if(!hips||!leftFoot||!rightFoot)return;
 
@@ -4195,10 +4195,10 @@ poseRig.RightFoot
 
 }
 
-// V3.4: 脚の回転がすべて確定した直後に、実際の足の高さを測って
-// 腰のYだけを補正する。しゃがみ動作が正しく腰の下降として反映され、
-// かつ足が地面から浮かないようにする。
-groundFeet(vrm);
+// V3.7: 足の接地補正はここでは行わない。正規化リグの時点では
+// RAW骨格への変換タイミングとズレて誤差が出るため、retarget()の
+// ループ内でvrm.humanoid.update()の直後(RAWに変換した後)に
+// groundFeetRaw()を呼んで直接補正する。
 
 rigHandWrist(
 vrm,
@@ -4294,6 +4294,10 @@ successfulFrames++;
 }
 
 vrm.humanoid.update();
+
+// V3.7: RAW骨格に変換された後、実際に書き出される座標系そのもので
+// 足の接地補正を行う(正規化リグ上で補正していたV3.4〜V3.6のズレを解消)
+groundFeetRaw(vrm);
 
 const sample={
 time:Number(frames[i].t)||0,
