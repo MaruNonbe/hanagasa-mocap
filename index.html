@@ -652,6 +652,29 @@ style="display:none;">
 
 <select id="poseSourceSelect"></select>
 
+<span class="status-line">+ 角度側(任意・三角測量)</span>
+
+<select id="poseAngleSourceSelect">
+<option value="">単眼(使用しない)</option>
+</select>
+
+<span class="status-line">相対角度</span>
+
+<input
+type="number"
+id="poseYawInput"
+value="45"
+min="-180"
+max="180"
+style="width:60px;background:var(--bg-panel);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-family:var(--mono);font-size:13px">
+
+<span class="status-line">度</span>
+
+<label class="status-line" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;">
+<input type="checkbox" id="poseYawFlip">
+反転
+</label>
+
 <button class="primary" id="runPoseBtn">
 姿勢推定を実行
 </button>
@@ -2056,6 +2079,15 @@ document.getElementById('posePanel');
 const poseSourceSelect=
 document.getElementById('poseSourceSelect');
 
+const poseAngleSourceSelect=
+document.getElementById('poseAngleSourceSelect');
+
+const poseYawInput=
+document.getElementById('poseYawInput');
+
+const poseYawFlip=
+document.getElementById('poseYawFlip');
+
 const runPoseBtn=
 document.getElementById('runPoseBtn');
 
@@ -2091,6 +2123,15 @@ ${s.meta.label} — ${s.file.name}
 </option>`
 ).join('');
 
+poseAngleSourceSelect.innerHTML=
+'<option value="">単眼(使用しない)</option>'+
+active.map(
+s=>
+`<option value="${s.index}">
+${s.meta.label} — ${s.file.name}
+</option>`
+).join('');
+
 }
 
 runPoseBtn.addEventListener(
@@ -2105,7 +2146,35 @@ poseSourceSelect.value,
 
 if(Number.isNaN(slotIndex))return;
 
+const angleRaw=poseAngleSourceSelect.value;
+
+if(angleRaw===''){
+
 window.runPoseEstimationV2(slotIndex);
+
+}else{
+
+const angleIndex=parseInt(angleRaw,10);
+
+if(Number.isNaN(angleIndex)||angleIndex===slotIndex){
+poseProgressText.textContent=
+'角度側には基準と異なる動画を選んでください。';
+poseProgress.classList.add('visible');
+return;
+}
+
+const yawDegRaw=parseFloat(poseYawInput.value);
+const yawDeg=Number.isFinite(yawDegRaw)?yawDegRaw:45;
+const flip=poseYawFlip.checked;
+
+window.runTriangulatedPoseEstimation(
+slotIndex,
+angleIndex,
+yawDeg,
+flip
+);
+
+}
 
 });
 
@@ -2637,6 +2706,443 @@ exportPoseBtn.disabled=true;
 }finally{
 
 URL.revokeObjectURL(videoUrl);
+
+}
+
+};
+
+// ---------------------------------------------------------------------
+// 2カメラ三角測量(簡易版)
+//
+// 前提: 2台のカメラはほぼ水平(傾いていない)で、正面カメラを基準(ヨー角0°)
+// としたとき、角度側カメラはその周りをyawDeg度だけ回転した位置にある
+// (SLOT_METAの「距離約4m」のように、被写体を中心に円弧上に置く想定)。
+//
+// MediaPipeのposeWorldLandmarksは各カメラごとの「体中心・カメラ視点基準」
+// の疑似メートル座標で、Y(上下)はカメラが水平である限りどちらのカメラでも
+// ほぼ同じ値になるはずですが、X(左右)とZ(奥行き)はカメラの向きに依存します。
+//
+// 正確なカメラキャリブレーション(内部パラメータ・厳密な外部パラメータ)は
+// 行っていないため、ここでは簡易的に「各カメラは自分の左右方向(ローカルX)
+// は比較的正確に捉えられるが、奥行き方向(ローカルZ)は不正確」という
+// 弱視点近似(weak perspective)を仮定し、2台分のローカルXを連立させて
+// ワールド座標のX・Zを逆算します。
+//
+//   基準カメラ(ヨー0°):   xA = X
+//   角度カメラ(ヨーθ):    xB = X*cosθ − Z*sinθ
+//   → X = xA
+//   → Z = (xA*cosθ − xB) / sinθ
+//
+// 「反転」チェックボックスはθの符号を反転させるためのものです。
+// 撮影時にどちらのカメラが被写体から見て左右どちらに立っていたかで
+// 符号が変わるため、書き出したプレビューを見て不自然なら反転してください。
+//
+// ⚠ この式はブラウザ上での実地検証をしていない仮説段階の実装です。
+// 期待通りの結果にならない場合は、まず単眼モードと見比べて、
+// 明らかに悪化していないかご確認ください。
+// ---------------------------------------------------------------------
+
+function fuseWorldLandmarks(worldA,worldB,yawRad){
+
+const sinT=Math.sin(yawRad);
+const cosT=Math.cos(yawRad);
+
+// sinθが0に近い(正面同士など)と割り算が不安定になるため、
+// その場合はカメラAの値をそのまま使う(=単眼相当にフォールバック)
+const degenerate=Math.abs(sinT)<0.05;
+
+const n=Math.min(
+worldA?worldA.length:0,
+worldB?worldB.length:0
+)||0;
+
+if(!n)return worldA||worldB||null;
+
+const fused=new Array(n);
+
+for(let i=0;i<n;i++){
+
+const a=worldA[i];
+const b=worldB[i];
+
+if(!a&&!b){
+fused[i]=null;
+continue;
+}
+
+if(!a){fused[i]=b;continue;}
+if(!b){fused[i]=a;continue;}
+
+const visA=a.visibility??0.5;
+const visB=b.visibility??0.5;
+
+let x,z;
+
+if(degenerate){
+
+x=a.x;
+z=a.z;
+
+}else{
+
+x=a.x;
+z=(a.x*cosT-b.x)/sinT;
+
+}
+
+const visSum=visA+visB;
+
+const y=visSum>0
+?(a.y*visA+b.y*visB)/visSum
+:(a.y+b.y)/2;
+
+fused[i]={
+
+x:Number(x.toFixed(5)),
+y:Number(y.toFixed(5)),
+z:Number(z.toFixed(5)),
+
+visibility:Number(
+Math.max(visA,visB).toFixed(3)
+)
+
+};
+
+}
+
+return fused;
+
+}
+
+function fuse2DVisibility(poseA,poseB){
+
+// 2Dランドマーク自体はposeA(基準カメラ)のものをそのまま使うが、
+// visibilityだけ両カメラの高い方を採用する。片方のカメラで
+// 自己遮蔽が起きていても、もう片方で見えていれば脚のゲーティング
+// (avgVisibility)が過剰に効かないようにするため。
+const n=Math.min(
+poseA?poseA.length:0,
+poseB?poseB.length:0
+)||0;
+
+if(!n)return poseA||poseB||null;
+
+const merged=new Array(n);
+
+for(let i=0;i<n;i++){
+
+const a=poseA[i];
+const b=poseB[i];
+
+if(!a&&!b){merged[i]=null;continue;}
+if(!a){merged[i]=b;continue;}
+if(!b){merged[i]=a;continue;}
+
+merged[i]={
+
+x:a.x,
+y:a.y,
+z:a.z,
+
+visibility:Math.max(
+a.visibility??0,
+b.visibility??0
+)
+
+};
+
+}
+
+return merged;
+
+}
+
+window.runTriangulatedPoseEstimation=
+async function(frontIndex,angleIndex,yawDeg,flip){
+
+const state=window.appState;
+
+const frontSlot=state.slots[frontIndex];
+const angleSlot=state.slots[angleIndex];
+
+if(!frontSlot||!angleSlot){
+poseProgressText.textContent=
+'選択した動画が見つかりません。';
+poseProgress.classList.add('visible');
+return;
+}
+
+runPoseBtn.disabled=true;
+exportPoseBtn.disabled=true;
+
+poseProgress.classList.add('visible');
+poseStage.classList.add('visible');
+
+poseProgressFill.style.width='0%';
+poseProgressText.textContent=
+'モデルを読み込み中(2カメラ分)…';
+
+let landmarkerA,landmarkerB;
+
+try{
+
+// 2本の動画を交互に処理すると内部のトラッキング状態が混線するため、
+// カメラごとに独立したインスタンスを用意する。
+landmarkerA=await getHolisticLandmarker();
+landmarkerB=await HolisticLandmarker.createFromOptions(
+await FilesetResolver.forVisionTasks(
+'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm'
+),
+{
+baseOptions:{
+modelAssetPath:
+'https://storage.googleapis.com/mediapipe-models/holistic_landmarker/holistic_landmarker/float16/latest/holistic_landmarker.task',
+delegate:'CPU'
+},
+runningMode:'VIDEO'
+}
+);
+
+}catch(err){
+
+console.error(err);
+
+poseProgressText.textContent=
+'モデルの読み込みに失敗しました。';
+
+runPoseBtn.disabled=false;
+
+return;
+
+}
+
+const videoA=document.createElement('video');
+const videoB=document.createElement('video');
+
+const urlA=URL.createObjectURL(frontSlot.file);
+const urlB=URL.createObjectURL(angleSlot.file);
+
+videoA.src=urlA;
+videoB.src=urlB;
+
+videoA.muted=true;
+videoB.muted=true;
+
+videoA.playsInline=true;
+videoB.playsInline=true;
+
+videoA.preload='auto';
+videoB.preload='auto';
+
+try{
+
+await Promise.all([
+waitForVideoMetadata(videoA),
+waitForVideoMetadata(videoB)
+]);
+
+const fps=parseFloat(fpsInput.value)||30;
+
+const startA=
+Number.isFinite(frontSlot.clapTime)
+?frontSlot.clapTime
+:0;
+
+const startB=
+Number.isFinite(angleSlot.clapTime)
+?angleSlot.clapTime
+:0;
+
+const durA=videoA.duration;
+const durB=videoB.duration;
+
+if(
+!Number.isFinite(durA)||durA<=0||
+!Number.isFinite(durB)||durB<=0
+){
+throw new Error('動画の長さを取得できませんでした。');
+}
+
+const availA=Math.max(0,durA-startA);
+const availB=Math.max(0,durB-startB);
+
+// 短い方に合わせる(手拍子基準で同期済みの時間軸で、両方とも
+// 映っている範囲だけを使う)
+const totalFrames=Math.max(
+1,
+Math.floor(Math.min(availA,availB)*fps)
+);
+
+const frameInterval=1/fps;
+
+const effectiveYawDeg=flip?-yawDeg:yawDeg;
+const yawRad=effectiveYawDeg*Math.PI/180;
+
+poseCanvas.width=videoA.videoWidth;
+poseCanvas.height=videoA.videoHeight;
+
+const ctx=poseCanvas.getContext('2d');
+
+const captured=[];
+
+let tsMsA=0;
+let tsMsB=0;
+
+for(
+let frameIdx=0;
+frameIdx<totalFrames;
+frameIdx++
+){
+
+const tA=Math.min(
+durA-.001,
+startA+frameIdx*frameInterval
+);
+
+const tB=Math.min(
+durB-.001,
+startB+frameIdx*frameInterval
+);
+
+poseProgressText.textContent=
+`2カメラ融合中 ${frameIdx+1}/${totalFrames} …`;
+
+await Promise.all([
+seekTo(videoA,tA,8000),
+seekTo(videoB,tB,8000)
+]);
+
+tsMsA+=1;
+tsMsB+=1;
+
+const resultA=
+landmarkerA.detectForVideo(videoA,tsMsA);
+
+const resultB=
+landmarkerB.detectForVideo(videoB,tsMsB);
+
+const poseA=unwrapLandmarks(resultA.poseLandmarks);
+const worldA=unwrapLandmarks(resultA.poseWorldLandmarks);
+const leftHandA=unwrapLandmarks(resultA.leftHandLandmarks);
+const rightHandA=unwrapLandmarks(resultA.rightHandLandmarks);
+
+const poseB=unwrapLandmarks(resultB.poseLandmarks);
+const worldB=unwrapLandmarks(resultB.poseWorldLandmarks);
+const leftHandB=unwrapLandmarks(resultB.leftHandLandmarks);
+const rightHandB=unwrapLandmarks(resultB.rightHandLandmarks);
+
+const fusedWorld=
+(worldA&&worldB)
+?fuseWorldLandmarks(worldA,worldB,yawRad)
+:(worldA||worldB);
+
+const fusedPose=
+(poseA&&poseB)
+?fuse2DVisibility(poseA,poseB)
+:(poseA||poseB);
+
+// 手は基準カメラ側を優先し、映っていなければ角度側を使う
+const leftHand=leftHandA||leftHandB;
+const rightHand=rightHandA||rightHandB;
+
+ctx.clearRect(
+0,0,poseCanvas.width,poseCanvas.height
+);
+
+ctx.drawImage(
+videoA,0,0,poseCanvas.width,poseCanvas.height
+);
+
+if(
+poseA&&
+window.POSE_CONNECTIONS&&
+typeof window.drawConnectors==='function'
+){
+window.drawConnectors(
+ctx,poseA,window.POSE_CONNECTIONS,
+{color:'#e8604c',lineWidth:2}
+);
+}
+
+captured.push({
+
+frame:frameIdx,
+
+t:Number(
+(frameIdx*frameInterval).toFixed(4)
+),
+
+sourceTime:Number(tA.toFixed(4)),
+
+pose:stripLm(fusedPose),
+poseWorld:stripLm(fusedWorld),
+
+leftHand:stripLm(leftHand),
+rightHand:stripLm(rightHand)
+
+});
+
+const pct=Math.min(
+100,
+Math.round(((frameIdx+1)/totalFrames)*100)
+);
+
+poseProgressFill.style.width=pct+'%';
+
+await new Promise(r=>setTimeout(r,0));
+
+}
+
+state.poseData={
+
+version:'V3.5-triangulated',
+
+slotIndex:frontIndex,
+angleSlotIndex:angleIndex,
+yawDeg:effectiveYawDeg,
+
+sourceFilename:
+`${frontSlot.file.name} + ${angleSlot.file.name}`,
+
+frameRate:fps,
+startTimeSeconds:startA,
+
+frames:captured
+
+};
+
+const worldCount=captured.filter(
+f=>Array.isArray(f.poseWorld)&&f.poseWorld.length>=33
+).length;
+
+poseProgressFill.style.width='100%';
+
+poseProgressText.textContent=
+`完了(2カメラ融合) — ${captured.length}フレーム `+
+`World ${worldCount}/${captured.length} / `+
+`相対角度 ${effectiveYawDeg}°`;
+
+runPoseBtn.disabled=false;
+exportPoseBtn.disabled=captured.length===0;
+
+window.dispatchEvent(
+new CustomEvent('pose-data-ready')
+);
+
+}catch(err){
+
+console.error('Triangulated pose estimation error:',err);
+
+poseProgressText.textContent=
+'2カメラ姿勢推定エラー: '+(err?.message||err);
+
+runPoseBtn.disabled=false;
+exportPoseBtn.disabled=true;
+
+}finally{
+
+URL.revokeObjectURL(urlA);
+URL.revokeObjectURL(urlB);
 
 }
 
@@ -4135,4 +4641,3 @@ vrmHint.textContent=
 
 </body>
 </html>
-k
