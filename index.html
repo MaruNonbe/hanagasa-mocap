@@ -3862,6 +3862,106 @@ const FINGER_BONES=[
 
 ];
 
+// V3.6: ベイク完了後の後処理平滑化で使うボーン名リストと窓幅。
+// 腰のYはゆっくりした動きなので窓を広く(10ポイント)、
+// 手首・指は素早い動きを鈍らせたくないので窓を狭く(4ポイント)する。
+const HAND_SMOOTH_WINDOW=4;
+const HIPS_Y_SMOOTH_WINDOW=10;
+
+const HAND_BONE_NAMES_TO_SMOOTH=[
+
+'leftHand','rightHand',
+
+'leftThumbProximal','leftThumbIntermediate','leftThumbDistal',
+'leftIndexProximal','leftIndexIntermediate','leftIndexDistal',
+'leftMiddleProximal','leftMiddleIntermediate','leftMiddleDistal',
+'leftRingProximal','leftRingIntermediate','leftRingDistal',
+'leftLittleProximal','leftLittleIntermediate','leftLittleDistal',
+
+'rightThumbProximal','rightThumbIntermediate','rightThumbDistal',
+'rightIndexProximal','rightIndexIntermediate','rightIndexDistal',
+'rightMiddleProximal','rightMiddleIntermediate','rightMiddleDistal',
+'rightRingProximal','rightRingIntermediate','rightRingDistal',
+'rightLittleProximal','rightLittleIntermediate','rightLittleDistal'
+
+];
+
+// スカラー値(腰のYなど)用の中心移動平均。オフライン処理なので
+// 未来のフレームも参照でき、指数移動平均と違って位相遅れが出ない。
+function smoothScalarSeries(values,windowSize){
+
+const half=Math.floor(windowSize/2);
+const out=new Array(values.length);
+
+for(let i=0;i<values.length;i++){
+
+let sum=0,count=0;
+
+for(let k=-half;k<=half;k++){
+
+const j=i+k;
+
+if(j>=0&&j<values.length){
+sum+=values[j];
+count++;
+}
+
+}
+
+out[i]=count?sum/count:values[i];
+
+}
+
+return out;
+
+}
+
+// クォータニオン用の中心移動平均。q と -q が同じ回転を表すため、
+// 平均する前に各サンプルの符号を基準(自分自身)に揃えてから足し、
+// 最後に正規化する。揃えずに平均すると回転が打ち消し合っておかしくなる。
+function smoothQuatSeries(quats,windowSize){
+
+const half=Math.floor(windowSize/2);
+const out=new Array(quats.length);
+
+for(let i=0;i<quats.length;i++){
+
+const ref=quats[i];
+
+let sx=0,sy=0,sz=0,sw=0,count=0;
+
+for(let k=-half;k<=half;k++){
+
+const j=i+k;
+
+if(j<0||j>=quats.length)continue;
+
+const q=quats[j];
+
+if(q.dot(ref)<0){
+sx-=q.x;sy-=q.y;sz-=q.z;sw-=q.w;
+}else{
+sx+=q.x;sy+=q.y;sz+=q.z;sw+=q.w;
+}
+
+count++;
+
+}
+
+const avg=new THREE.Quaternion(
+sx/count,sy/count,sz/count,sw/count
+);
+
+out[i]=avg.lengthSq()<1e-8
+?ref.clone()
+:avg.normalize();
+
+}
+
+return out;
+
+}
+
 // V3.4: 指にも軽い平滑化(0.5)を適用してジッターを抑える。
 function rigHandFingers(
 vrm,
@@ -4266,6 +4366,52 @@ throw new Error(
 );
 
 }
+
+// V3.6: 全フレーム分そろったところで後処理の平滑化をかける。
+// オフラインならではの中心移動平均(前後対称の窓)を使う。
+
+vrmProgressText.textContent=
+'平滑化(後処理)を適用中…';
+
+{
+// 腰のYだけ、ゆっくりした動き向けに広い窓(10ポイント)で平滑化
+const hipsYSeries=perFrameSamples.map(sample=>{
+const b=sample.bones.get('hips');
+return(b&&b.pos)?b.pos.y:null;
+});
+
+if(hipsYSeries.every(v=>v!==null)){
+
+const smoothedY=
+smoothScalarSeries(hipsYSeries,HIPS_Y_SMOOTH_WINDOW);
+
+perFrameSamples.forEach((sample,i)=>{
+const b=sample.bones.get('hips');
+if(b&&b.pos)b.pos.y=smoothedY[i];
+});
+
+}
+}
+
+// 手首・指は素早い動きを鈍らせないよう、狭い窓(4ポイント)で平滑化
+HAND_BONE_NAMES_TO_SMOOTH.forEach(boneName=>{
+
+const series=perFrameSamples.map(sample=>{
+const b=sample.bones.get(boneName);
+return b?b.quat:null;
+});
+
+if(series.some(v=>v===null))return; // このモデルに無いボーンはスキップ
+
+const smoothed=
+smoothQuatSeries(series,HAND_SMOOTH_WINDOW);
+
+perFrameSamples.forEach((sample,i)=>{
+const b=sample.bones.get(boneName);
+if(b)b.quat=smoothed[i];
+});
+
+});
 
 const tracks=[];
 
